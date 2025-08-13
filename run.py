@@ -19,40 +19,34 @@ def refresh_statistics(result, opponent_id):
         """
 
         statistics_text = f.read()
-        print(f"{statistics_text=}")
-        massive = statistics_text.strip().split('\n')
 
-        index = None
+    print(f"{statistics_text=}")
+    massive = statistics_text.strip().split('\n')
+    index = None
+    string = f"{opponent_id}: 0 0 0"
+    if opponent_id in statistics_text:
+        for i in range(len(massive)):
+            string = massive[i]
+            index = i
+            if opponent_id in string:
+                break
 
-        if opponent_id in statistics_text:
+    split_str = string.split(':')
+    split_str_1 = split_str[1].strip().split(' ')
 
-            for i in range(len(massive)):
-                string = massive[i]
-                index = i
+    if "Victory" in result:
+        new_string = split_str[0] + f": {str(int(split_str_1[0])+1)} {split_str_1[1]} {split_str_1[2]}"
+    elif "Defeat" in result:
+        new_string = split_str[0] + f": {split_str_1[0]} {str(int(split_str_1[1])+1)} {split_str_1[2]}"
+    else:
+        new_string = split_str[0] + f": {split_str_1[0]} {split_str_1[1]} {str(int(split_str_1[2])+1)}"
 
-                if opponent_id in string:
-                    break
+    if index is not None:
+        massive[index] = new_string
+    else:
+        massive.append(new_string)
 
-        else:
-            string = f"{opponent_id}: 0 0 0"
-
-        split_str = string.split(':')
-        split_str_1 = split_str[1].strip().split(' ')
-
-        if "Victory" in result:
-            new_string = split_str[0] + f": {str(int(split_str_1[0])+1)} {split_str_1[1]} {split_str_1[2]}"
-        elif "Defeat" in result:
-            new_string = split_str[0] + f": {split_str_1[0]} {str(int(split_str_1[1])+1)} {split_str_1[2]}"
-        else:
-            new_string = split_str[0] + f": {split_str_1[0]} {split_str_1[1]} {str(int(split_str_1[2])+1)}"
-
-        if index is not None:
-            massive[index] = new_string
-        else:
-            massive.append(new_string)
-
-        write_file(massive)
-        f.close()
+    write_file(massive)
 
 
 def write_file(massive):
