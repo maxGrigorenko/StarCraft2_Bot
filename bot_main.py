@@ -15,6 +15,7 @@ from sc2.player import Bot, Computer, Human
 from sc2.bot_ai import *
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
+from sc2.ids.upgrade_id import UpgradeId
 
 
 class SmallBly(BotAI):
@@ -32,6 +33,8 @@ class SmallBly(BotAI):
     from _zergling_drone_rush import prominent_structures, zergling_drone_rush_step, \
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
         wall_breaker_do_block, zergling_rush_macro_element
+
+    from _roach_rush import roach_rush_macro_element, roach_rush_step
 
     def __init__(self):
         super().__init__()
@@ -72,15 +75,16 @@ class SmallBly(BotAI):
         # {hatchery: {mineral1: [drone1, drone2], mineral2: [drone1, drone2], ...}, ... }
 
     async def on_step(self, iteration):  # 168 iterations per minute ~ 3 iterations per second
-        await self.zergling_drone_rush_step(iteration=iteration)
+        # await self.zergling_drone_rush_step(iteration=iteration)
+        await self.roach_rush_step(iteration=iteration)
 
 
 def main():
     run_game(sc2.maps.get("2000AtmospheresAIE"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE
+        # Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE
         # Bot(Race.Zerg, SmallBly()),
         Bot(Race.Zerg, SmallBly()),
-        # Computer(Race.Zerg, Difficulty.VeryHard),
+        Computer(Race.Zerg, Difficulty.VeryHard),
     ], realtime=False,
              disable_fog=False,
              random_seed=1

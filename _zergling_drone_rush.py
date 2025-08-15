@@ -218,7 +218,7 @@ async def zergling_rush_macro_element(self):
                 if not dronny.is_carrying_resource and get_distance(dronny.position,
                                                                     first_base.position) < max_distance:
                     target = self.vespene_geyser.closest_to(
-                        dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geysir) not the position of the vespene geyser."
+                        dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
                     dronny.build(UnitTypeId.EXTRACTOR, target)
                     if dronny not in self.building_workers:
                         self.building_workers.append(dronny)
@@ -231,7 +231,6 @@ async def zergling_rush_macro_element(self):
                 drone = w.random
                 drone.gather(extractor)  # !!!
                 self.drones_on_gas.append(drone)
-
 
     if self.structures(UnitTypeId.SPAWNINGPOOL).ready.exists:
         if not self.structures(UnitTypeId.LAIR).exists and not self.structures(

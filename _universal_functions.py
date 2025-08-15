@@ -315,7 +315,7 @@ def proxy(self):
     for drone in self.units(UnitTypeId.DRONE):
         if get_distance(drone.position, self.start_location) > 100 and self.minerals >= 25:
             print("Building proxy")
-            target = self.state.vespene_geyser.closest_to(drone.position)
+            target = self.vespene_geyser.closest_to(drone.position)
             drone.build(UnitTypeId.EXTRACTOR, target)
             if drone not in self.building_workers:
                 self.building_workers.append(drone)
