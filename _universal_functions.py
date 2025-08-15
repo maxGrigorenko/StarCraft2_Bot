@@ -411,3 +411,60 @@ async def is_opponents_main_won(self):
                 await self.chat_send("We won opponent's main!")
                 self.need_to_attack_main_base = False
                 break
+
+
+async def macro_element(self):
+    first_base = self.townhalls.first
+    if self.structures(UnitTypeId.EXTRACTOR).amount + self.already_pending(UnitTypeId.EXTRACTOR) < 2 and len(
+            self.mining_drones) > 12:
+        if self.can_afford(UnitTypeId.EXTRACTOR):
+
+            self.dronny = self.refresh_unit(self.dronny)
+            if not self.dronny or self.dronny is None:
+                self.dronny = self.closest_unit(
+                    [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
+                    self.start_location)
+            dronny = self.dronny
+
+            if self.can_afford(UnitTypeId.EXTRACTOR):
+                target = self.vespene_geyser.closest_to(
+                    dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
+                dronny.build(UnitTypeId.EXTRACTOR, target)
+                if dronny not in self.building_workers:
+                    self.building_workers.append(dronny)
+                    return
+
+    for extractor in self.structures(UnitTypeId.EXTRACTOR):
+        if extractor.assigned_harvesters < extractor.ideal_harvesters:
+            w = self.workers.closer_than(6, extractor)
+            if w.exists:
+                drone = w.random
+                drone.gather(extractor)  # !!!
+                self.drones_on_gas.append(drone)
+
+    if self.structures(UnitTypeId.SPAWNINGPOOL).ready.exists:
+        if not self.structures(UnitTypeId.LAIR).exists and not self.structures(
+                UnitTypeId.HIVE).exists and first_base.is_idle:
+            if self.can_afford(UnitTypeId.LAIR):
+                first_base.build(UnitTypeId.LAIR)
+
+    if self.structures(UnitTypeId.LAIR).ready.exists:
+        if not (self.structures(UnitTypeId.SPIRE).exists or self.already_pending(UnitTypeId.SPIRE)):
+            if self.can_afford(UnitTypeId.SPIRE):
+                self.dronny = self.refresh_unit(self.dronny)
+                if not self.dronny or self.dronny is None:
+                    self.dronny = self.closest_unit(
+                        [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
+                        self.start_location)
+                dronny = self.dronny
+                await self.build(UnitTypeId.SPIRE, build_worker=dronny, near=self.structures(UnitTypeId.SPAWNINGPOOL)[0])
+                if dronny not in self.building_workers:
+                    self.building_workers.append(dronny)
+
+    if self.structures(UnitTypeId.SPIRE).ready.exists:
+        if self.units(UnitTypeId.LARVA).exists:
+            larva = self.units(UnitTypeId.LARVA).random
+            if self.can_afford(UnitTypeId.MUTALISK):
+                larva.train(UnitTypeId.MUTALISK)
+                return
+

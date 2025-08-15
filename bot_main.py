@@ -33,9 +33,9 @@ class SmallBly(BotAI):
 
     from _zergling_drone_rush import prominent_structures, zergling_drone_rush_step, \
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
-        wall_breaker_do_block, zergling_rush_macro_element
+        wall_breaker_do_block, macro_element
 
-    from _roach_rush import roach_rush_macro_element, roach_rush_step
+    from _roach_rush import roach_rush_step
 
     def __init__(self):
         super().__init__()
