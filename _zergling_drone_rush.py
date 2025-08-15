@@ -213,15 +213,20 @@ async def zergling_rush_macro_element(self):
     if self.structures(UnitTypeId.EXTRACTOR).amount + self.already_pending(UnitTypeId.EXTRACTOR) < 2 and len(
             self.mining_drones) > 12:
         if self.can_afford(UnitTypeId.EXTRACTOR):
-            for dronny in self.units(UnitTypeId.DRONE):
-                max_distance = 10
-                if not dronny.is_carrying_resource and get_distance(dronny.position,
-                                                                    first_base.position) < max_distance:
-                    target = self.vespene_geyser.closest_to(
-                        dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
-                    dronny.build(UnitTypeId.EXTRACTOR, target)
-                    if dronny not in self.building_workers:
-                        self.building_workers.append(dronny)
+
+            self.dronny = self.refresh_unit(self.dronny)
+            if not self.dronny or self.dronny is None:
+                self.dronny = self.closest_unit(
+                    [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
+                    self.start_location)
+            dronny = self.dronny
+
+            if self.can_afford(UnitTypeId.EXTRACTOR):
+                target = self.vespene_geyser.closest_to(
+                    dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
+                dronny.build(UnitTypeId.EXTRACTOR, target)
+                if dronny not in self.building_workers:
+                    self.building_workers.append(dronny)
                     return
 
     for extractor in self.structures(UnitTypeId.EXTRACTOR):
@@ -241,7 +246,12 @@ async def zergling_rush_macro_element(self):
     if self.structures(UnitTypeId.LAIR).ready.exists:
         if not (self.structures(UnitTypeId.SPIRE).exists or self.already_pending(UnitTypeId.SPIRE)):
             if self.can_afford(UnitTypeId.SPIRE):
-                dronny = self.units(UnitTypeId.DRONE).random
+                self.dronny = self.refresh_unit(self.dronny)
+                if not self.dronny or self.dronny is None:
+                    self.dronny = self.closest_unit(
+                        [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
+                        self.start_location)
+                dronny = self.dronny
                 await self.build(UnitTypeId.SPIRE, build_worker=dronny, near=first_base)
                 if dronny not in self.building_workers:
                     self.building_workers.append(dronny)
@@ -477,9 +487,9 @@ async def zergling_drone_rush_step(self, iteration):
                                 not enemy_unit.is_flying):
                             self.known_enemy_u.append(enemy_unit)
 
-                    for j in self.known_enemy_u:
-                        if j not in self.enemy_units:
-                            self.known_enemy_u.remove(j)
+                    for unit_in_known in self.known_enemy_u:
+                        if unit_in_known not in self.enemy_units:
+                            self.known_enemy_u.remove(unit_in_known)
 
                     if len(self.known_enemy_u) > 0 and get_distance(unit.position,
                                                                     self.closest_enemy_unit(unit).position) < 3:
@@ -495,12 +505,12 @@ async def zergling_drone_rush_step(self, iteration):
                 else:
                     unit.move(self.enemy_start_locations[0])
 
-            for queen in self.units(UnitTypeId.QUEEN):
-                if queen.is_idle:
-                    queen.attack(self.enemy_start_locations[0])
+        for queen in self.units(UnitTypeId.QUEEN):
+            if queen.is_idle:
+                queen.attack(self.enemy_start_locations[0])
 
     elif not self.need_to_attack_main_base:
-        await self.find_final_structures()
+        await self.find_final_structures(forces=forces, army=(self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING)))
 
     # STARTING ATTACK
     elif self.stop_drone and self.units(UnitTypeId.OVERLORD).amount == 2 and self.units(
@@ -518,17 +528,5 @@ async def zergling_drone_rush_step(self, iteration):
             self.stop_new_drone_attack_time = self.time + 8
 
     if self.need_to_attack_main_base:
-        for i in forces:
-            dist = get_distance(i.position, self.enemy_start_locations[0])
+        await self.is_opponents_main_won()
 
-            if dist < 1:
-                if len(self.known_enemy_u) > 0:
-                    if get_distance(i.position, self.closest_enemy_unit(i).position) > 4:
-                        await self.chat_send("We won opponent's main!")
-                        self.need_to_attack_main_base = False
-                        break
-
-                else:
-                    await self.chat_send("We won opponent's main!")
-                    self.need_to_attack_main_base = False
-                    break

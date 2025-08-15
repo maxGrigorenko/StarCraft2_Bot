@@ -90,11 +90,19 @@ async def roach_rush_step(self, iteration):
             self.supply_workers < 14 or self.need_air_units):
         self.stop_drone = False
 
+    if iteration == 30:
+        await self.chat_send("gl hf!")
+        print(
+            f"\nOpponent_id: {self.opponent_id}\n\nMap size: {self.game_info.map_size[0]} {self.game_info.map_size[1]}\n\nStart location: {self.start_location.position[0]} {self.start_location[1]}")
+
+    if len(self.locations) == 0:
+        self.locations = self.get_locations()
+
     # BUILDING DRONES
 
     if len(self.mining_drones) < first_base.ideal_harvesters and (self.need_air_units or not self.stop_drone):
         if self.can_afford(UnitTypeId.DRONE) and larvae.exists and (
-                self.units(UnitTypeId.EGG).amount == 0 or self.structures(UnitTypeId.ROACHWARREN).ready.exists):
+                self.time < 67 or self.structures(UnitTypeId.ROACHWARREN).ready.exists):
             self.train(UnitTypeId.DRONE)
 
     if not self.dronny or self.dronny is None:
@@ -105,7 +113,8 @@ async def roach_rush_step(self, iteration):
     # BUILDING SPAWNING POOL
 
     if self.structures(UnitTypeId.SPAWNINGPOOL).amount + self.already_pending(UnitTypeId.SPAWNINGPOOL) == 0:
-        dronny = self.refresh_unit(self.dronny)
+        self.dronny = self.refresh_unit(self.dronny)
+        dronny = self.dronny
         distance = 8
         if self.time < 70:
             if 200 > self.minerals > 140 and not dronny.is_carrying_resource and get_distance(dronny.position,
@@ -132,19 +141,17 @@ async def roach_rush_step(self, iteration):
 
     if self.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and\
             (self.structures(UnitTypeId.EXTRACTOR).amount + self.already_pending(UnitTypeId.EXTRACTOR) == 0):
+        dronny = self.refresh_unit(self.dronny)
         if self.can_afford(UnitTypeId.EXTRACTOR):
-            for dronny in self.units(UnitTypeId.DRONE):
-                max_distance = 10
-                if not dronny.is_carrying_resource and get_distance(dronny.position,
-                                                                    first_base.position) < max_distance:
-                    target = self.vespene_geyser.closest_to(
-                        dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
-                    dronny.build(UnitTypeId.EXTRACTOR, target)
-                    if dronny not in self.building_workers:
-                        self.building_workers.append(dronny)
+            target = self.vespene_geyser.closest_to(
+                dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
+            dronny.build(UnitTypeId.EXTRACTOR, target)
+            if dronny not in self.building_workers:
+                self.building_workers.append(dronny)
 
     for extractor in self.structures(UnitTypeId.EXTRACTOR):
-        if extractor.assigned_harvesters < extractor.ideal_harvesters:
+        if extractor.assigned_harvesters < extractor.ideal_harvesters and \
+                self.structures(UnitTypeId.EXTRACTOR).ready.exists:
             w = self.workers.closer_than(6, extractor)
             if w.exists:
                 drone = w.random
@@ -163,7 +170,7 @@ async def roach_rush_step(self, iteration):
             dronny = self.dronny
 
         distance = 8
-        if 150 > self.minerals > 100 and not dronny.is_carrying_resource and \
+        if self.time > 55 and not dronny.is_carrying_resource and \
                 get_distance(dronny.position, self.start_location) < distance:
             dronny.move(self.enemy_start_locations[0])
             if dronny not in self.building_workers:
@@ -190,5 +197,49 @@ async def roach_rush_step(self, iteration):
     if self.structures(UnitTypeId.ROACHWARREN).ready.exists and self.can_afford(UnitTypeId.ROACH) and larvae.exists:
         larvae.random.train(UnitTypeId.ROACH)
 
+    # ATTACK
+
+    '''
     for unit in forces:
         unit.attack(self.enemy_start_locations[0])
+    '''
+
+    if (self.units(UnitTypeId.ROACH).amount > 0 or (
+            not self.no_units_in_opponent_main() and self.time > 100)) and self.need_to_attack_main_base:
+        for unit in forces:
+            if self.enemy_units.exists:
+
+                for enemy_unit in self.enemy_units:
+                    if (enemy_unit not in self.known_enemy_u) and (
+                            enemy_unit not in self.enemy_structures) and (
+                            enemy_unit not in self.enemy_units(UnitTypeId.LARVA)) and (
+                            not enemy_unit.is_flying):
+                        self.known_enemy_u.append(enemy_unit)
+
+                for unit_in_known in self.known_enemy_u:
+                    if unit_in_known not in self.enemy_units:
+                        self.known_enemy_u.remove(unit_in_known)
+
+                if len(self.known_enemy_u) > 0 and get_distance(unit.position,
+                                                                self.closest_enemy_unit(unit).position) < 3:
+                    unit.attack(self.closest_enemy_unit(unit).position)
+
+                elif (get_distance(unit.position, self.enemy_start_locations[0]) < 7) or (
+                        unit.health_max - unit.health > 0):
+                    unit.attack(self.enemy_start_locations[0])
+
+                else:
+                    unit.move(self.enemy_start_locations[0])
+
+            else:
+                unit.move(self.enemy_start_locations[0])
+
+        for queen in self.units(UnitTypeId.QUEEN):
+            if queen.is_idle:
+                queen.attack(self.enemy_start_locations[0])
+
+    elif not self.need_to_attack_main_base:
+        await self.find_final_structures(forces=forces, army=(self.units(UnitTypeId.ROACH) | self.units(UnitTypeId.OVERLORD)))
+
+    if self.need_to_attack_main_base:
+        await self.is_opponents_main_won()

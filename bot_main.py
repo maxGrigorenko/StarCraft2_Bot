@@ -28,7 +28,8 @@ class SmallBly(BotAI):
         is_units_health_max, all_flying_enemies, all_known_structures_flying, \
         closest_enemy_unit, closest_unit, enemy_locations, overlord_management, \
         map_scout, need_group, group_units, defending, micro_element, queen_management, \
-        no_units_in_opponent_main, proxy, mining_iteration, find_final_structures
+        no_units_in_opponent_main, proxy, mining_iteration, find_final_structures, \
+        is_opponents_main_won
 
     from _zergling_drone_rush import prominent_structures, zergling_drone_rush_step, \
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
@@ -81,10 +82,10 @@ class SmallBly(BotAI):
 
 def main():
     run_game(sc2.maps.get("2000AtmospheresAIE"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        # Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE
+        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE
         # Bot(Race.Zerg, SmallBly()),
         Bot(Race.Zerg, SmallBly()),
-        Computer(Race.Zerg, Difficulty.VeryHard),
+        # Computer(Race.Terran, Difficulty.VeryHard),
     ], realtime=False,
              disable_fog=False,
              random_seed=1

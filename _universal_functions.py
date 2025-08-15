@@ -133,10 +133,8 @@ async def overlord_management(self):
                 self.busy_overlords.append(overlord)
 
 
-async def map_scout(self):
+async def map_scout(self, army):
     locations = self.locations
-
-    army = self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING)
     idle_massiv = []
 
     for i in army:
@@ -157,7 +155,7 @@ async def map_scout(self):
                     self.location_counter += 1
 
             for j in army:
-                if j not in self.home_dronny:
+                if j not in self.home_dronny and j not in self.units(UnitTypeId.OVERLORD):
                     await self.base_scout(j, self.location_counter)
 
 
@@ -210,7 +208,6 @@ async def group_units(self, middle_unit, max_distance):
         if unit not in self.home_dronny and unit not in self.wall_breakers:
             forces.append(unit)
 
-    print("Do grouping")
     positions = []
 
     for unit in forces:
@@ -356,9 +353,7 @@ async def mining_iteration(self):
     #   print(f"\n{len(drones)} drones:\n{self.mining_mineral_data}\n{self.mining_hatchery_data}\n")
 
 
-async def find_final_structures(self):
-    forces = self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.ROACH) | self.units(
-        UnitTypeId.MUTALISK)
+async def find_final_structures(self, forces, army):
     self.wall_breakers = []
     # print("Now, we don't need to attack enemies main")
     if len(self.enemy_structures) > 0 and not self.all_known_structures_flying():
@@ -375,8 +370,7 @@ async def find_final_structures(self):
         self.in_scout = []
 
     else:
-        # print("Map scout")
-        await self.map_scout()
+        await self.map_scout(army)
         if self.enemy_structures.exists and self.units(UnitTypeId.QUEEN).exists:
             for queen in self.units(UnitTypeId.QUEEN):
                 if queen.is_idle:
@@ -398,3 +392,22 @@ async def find_final_structures(self):
                     if unit.is_idle:
                         unit.attack(sc2.position.Point2([random.randint(0, int(self.game_info.map_size[0])),
                                                          random.randint(0, int(self.game_info.map_size[1]))]))
+
+
+async def is_opponents_main_won(self):
+    forces = self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.ROACH) | self.units(
+        UnitTypeId.MUTALISK)
+    for army_unit in forces:
+        dist = get_distance(army_unit.position, self.enemy_start_locations[0])
+
+        if dist < 1:
+            if len(self.known_enemy_u) > 0:
+                if get_distance(army_unit.position, self.closest_enemy_unit(army_unit).position) > 4:
+                    await self.chat_send("We won opponent's main!")
+                    self.need_to_attack_main_base = False
+                    break
+
+            else:
+                await self.chat_send("We won opponent's main!")
+                self.need_to_attack_main_base = False
+                break
