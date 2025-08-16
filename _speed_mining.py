@@ -112,6 +112,14 @@ def refresh_mining_data(self, drones):
     self.assign_mining_positions()
 
 
+def check_mineral_fields_near_base(self, base):
+    for mineral_field in self.mineral_field:
+        distance = get_distance(base.position, mineral_field.position)
+        if distance < 10:
+            return True
+    return False
+
+
 def is_hatchery_for_mining(self, hatchery):
     closest_mineral_fields = self.mineral_field.closer_than(10, hatchery)
     if len(closest_mineral_fields) >= 1:

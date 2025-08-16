@@ -14,6 +14,10 @@ async def roach_rush_step(self, iteration):
     await self.queen_management()
     await self.micro_element()
 
+    if self.units(UnitTypeId.ROACH).amount >= 16:
+        if self.enemy_race == Race.Terran and not self.need_to_attack_main_base:
+            self.need_air_units = True
+
     forces = self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.ROACH) | self.units(UnitTypeId.MUTALISK)
     with_drone_forces = self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.ROACH) | self.units(
         UnitTypeId.MUTALISK)
@@ -148,6 +152,12 @@ async def roach_rush_step(self, iteration):
         else:
             await self.macro_element()
 
+    if first_base.is_idle:
+        min_minerals = 225 + larvae.amount * 75
+        if self.minerals >= min_minerals and self.already_pending_upgrade(UpgradeId.BURROW) == 1 and \
+                (not self.need_air_units or self.structures(UnitTypeId.LAIR).amount >= 1) and self.supply_left >= 2:
+            first_base.train(UnitTypeId.QUEEN)
+
     if (self.supply_left <= 0 or (self.units(UnitTypeId.DRONE).amount >= 14 and self.supply_left <= 1)) and \
             not self.already_pending(UnitTypeId.OVERLORD):
         if self.can_afford(UnitTypeId.OVERLORD) and larvae.exists:
@@ -158,15 +168,12 @@ async def roach_rush_step(self, iteration):
     ):
         self.research(UpgradeId.BURROW)
 
-    if self.structures(UnitTypeId.ROACHWARREN).ready.exists and self.can_afford(UnitTypeId.ROACH) and larvae.exists:
+    if self.structures(UnitTypeId.ROACHWARREN).ready.exists and \
+            self.can_afford(UnitTypeId.ROACH) and \
+            larvae.exists and not self.need_air_units:
         larvae.random.train(UnitTypeId.ROACH)
 
     # ATTACK
-
-    '''
-    for unit in forces:
-        unit.attack(self.enemy_start_locations[0])
-    '''
 
     if (self.units(UnitTypeId.ROACH).amount > 0 or (
             not self.no_units_in_opponent_main() and self.time > 100)) and self.need_to_attack_main_base:

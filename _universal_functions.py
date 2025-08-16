@@ -94,6 +94,8 @@ def closest_unit(self, units, obj):
     minimal = 300
     for unit in units:
         unit = self.refresh_unit(unit)
+        if unit is None:
+            continue
         d = get_distance(unit.position, obj.position)
         if d < minimal:
             minimal = d
@@ -286,9 +288,9 @@ async def micro_element(self):
 async def queen_management(self):
     for queen in self.units(UnitTypeId.QUEEN):
         dist = get_distance(queen.position, self.start_location)
-
+        bases_amount = self.structures(UnitTypeId.HATCHERY).amount + self.structures(UnitTypeId.LAIR).amount + self.structures(UnitTypeId.HIVE).amount
         if queen.is_idle and dist < 40:
-            if queen.energy >= 25 and self.structures(UnitTypeId.HATCHERY).amount > 0:
+            if queen.energy >= 25 and bases_amount > 0:
                 queen(AbilityId.EFFECT_INJECTLARVA, self.townhalls.first)
 
         '''
@@ -345,6 +347,10 @@ async def mining_iteration(self):
 
         except BaseException:
             print("Mining exception")
+
+    # FOR 1 BASE STRATEGIES; LONG-DIST MINING
+    # if not self.check_mineral_fields_near_base(self.townhalls.first):
+    #     print("TRY LONG-DIST MINING")
 
     # if self.state.game_loop % (22.4 * 5) == 0:
     #    logger.info(f"{self.time_formatted} Mined a total of {int(self.state.score.collected_minerals)} minerals")

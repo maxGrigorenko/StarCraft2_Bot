@@ -21,7 +21,8 @@ from sc2.ids.upgrade_id import UpgradeId
 class SmallBly(BotAI):
 
     from _speed_mining import speed_mining, refresh_mining_data, assign_mining_positions, \
-        check_reorganization, is_hatchery_for_mining, neighbor_mineral_fields
+        check_reorganization, is_hatchery_for_mining, neighbor_mineral_fields, \
+        check_mineral_fields_near_base
 
     from _universal_functions import refresh_unit, enemy_dangerous_structures, \
         dangerous_structures_exist, select_target, get_locations, base_scout, \
