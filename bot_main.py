@@ -36,7 +36,7 @@ class SmallBly(BotAI):
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
         wall_breaker_do_block, macro_element
 
-    from _roach_rush import roach_rush_step
+    from _roach_rush import roach_rush_step, borrow_micro
 
     def __init__(self):
         super().__init__()
@@ -72,13 +72,32 @@ class SmallBly(BotAI):
         self.mining_mineral_data = {}  # {mineral_filed1: [drone1, drone2], mineral_field2: [drone1, drone2], ...}
         self.mining_drone_data = {}  # {drone1: [hatchery_position_mining, mineral_position_mining], drone2: [position1, position2], ...}
         self.mineral_field_distances = {}
+        self.strategy = False
 
         # mineral filed standard distance: 6-8
         # {hatchery: {mineral1: [drone1, drone2], mineral2: [drone1, drone2], ...}, ... }
 
+    def choose_strategy(self):
+        opp_id = self.opponent_id
+        with open("data/statistics.txt") as f:
+            statistics_text = f.read()
+
+        massive = statistics_text.strip().split('\n')
+        self.strategy = 2
+
     async def on_step(self, iteration):  # 168 iterations per minute ~ 3 iterations per second
-        # await self.zergling_drone_rush_step(iteration=iteration)
-        await self.roach_rush_step(iteration=iteration)
+        if not self.strategy:
+            self.choose_strategy()
+            print(f"{self.strategy=}")
+
+            with open("data/chosen_strategy.txt", mode='w') as f:
+                f.write(str(self.strategy))
+
+        if self.strategy == 1:
+            await self.zergling_drone_rush_step(iteration=iteration)
+
+        elif self.strategy == 2:
+            await self.roach_rush_step(iteration=iteration)
 
 
 def main():
@@ -86,7 +105,7 @@ def main():
         Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE
         # Bot(Race.Zerg, SmallBly()),
         Bot(Race.Zerg, SmallBly()),
-        # Computer(Race.Terran, Difficulty.VeryHard),
+        # Computer(Race.Protoss, Difficulty.CheatInsane),
     ], realtime=False,
              disable_fog=False,
              random_seed=1

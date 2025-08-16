@@ -12,10 +12,10 @@ def refresh_statistics(result, opponent_id):
     with open("data/statistics.txt") as f:
 
         """
-        id_1: 1 2 0
-        id_2: 3 0 0
+        id_1: 1 2 0 1 2 0
+        id_2: 3 0 0 3 0 0
         ...
-        id_n: wins loses ties
+        id_n: wins1 loses1 ties1 wins2 loses2 ties2
         """
 
         statistics_text = f.read()
@@ -23,7 +23,7 @@ def refresh_statistics(result, opponent_id):
     print(f"{statistics_text=}")
     massive = statistics_text.strip().split('\n')
     index = None
-    string = f"{opponent_id}: 0 0 0"
+    string = f"{opponent_id}: 0 0 0 0 0 0"
     if opponent_id in statistics_text:
         for i in range(len(massive)):
             string = massive[i]
@@ -33,6 +33,9 @@ def refresh_statistics(result, opponent_id):
 
     split_str = string.split(':')
     split_str_1 = split_str[1].strip().split(' ')
+
+    while len(split_str_1) < 6:
+        split_str_1.append('0')
 
     if "Victory" in result:
         new_string = split_str[0] + f": {str(int(split_str_1[0])+1)} {split_str_1[1]} {split_str_1[2]}"

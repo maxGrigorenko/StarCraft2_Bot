@@ -8,11 +8,31 @@ from _universal_functions import *
 from _speed_mining import *
 
 
+def borrow_micro(self):
+    if UpgradeId.BURROW not in self.state.upgrades:
+        return
+
+    for roach in self.units(UnitTypeId.ROACH):
+        if roach.health <= 40 and not roach.is_burrowed:
+            roach(AbilityId.BURROWDOWN_ROACH)
+    for burrowed_roach in self.units(UnitTypeId.ROACHBURROWED):
+        if burrowed_roach.health >= 110 and burrowed_roach.is_burrowed:
+            burrowed_roach(AbilityId.BURROWUP_ROACH)
+
+    for queen in self.units(UnitTypeId.QUEEN):
+        if queen.health <= 40 and not queen.is_burrowed:
+            queen(AbilityId.BURROWDOWN_QUEEN)
+    for burrowed_queen in self.units(UnitTypeId.QUEENBURROWED):
+        if burrowed_queen.health >= 110 and burrowed_queen.is_burrowed:
+            burrowed_queen(AbilityId.BURROWUP_QUEEN)
+
+
 async def roach_rush_step(self, iteration):
     await self.mining_iteration()
     await self.overlord_management()
     await self.queen_management()
     await self.micro_element()
+    self.borrow_micro()
 
     if self.units(UnitTypeId.ROACH).amount >= 16:
         if self.enemy_race == Race.Terran and not self.need_to_attack_main_base:
@@ -52,8 +72,7 @@ async def roach_rush_step(self, iteration):
 
     if iteration == 30:
         await self.chat_send("gl hf!")
-        print(
-            f"\nOpponent_id: {self.opponent_id}\n\nMap size: {self.game_info.map_size[0]} {self.game_info.map_size[1]}\n\nStart location: {self.start_location.position[0]} {self.start_location[1]}")
+        print(f"\nOpponent_id: {self.opponent_id}\n\nMap size: {self.game_info.map_size[0]} {self.game_info.map_size[1]}\n\nStart location: {self.start_location.position[0]} {self.start_location[1]}")
 
     if len(self.locations) == 0:
         self.locations = self.get_locations()
@@ -177,9 +196,14 @@ async def roach_rush_step(self, iteration):
 
     if (self.units(UnitTypeId.ROACH).amount > 0 or (
             not self.no_units_in_opponent_main() and self.time > 100)) and self.need_to_attack_main_base:
-        for unit in forces:
-            if self.enemy_units.exists:
 
+        for unit in forces:
+
+            for unit_in_known in self.known_enemy_u:
+                if unit_in_known not in self.enemy_units:
+                    self.known_enemy_u.remove(unit_in_known)
+
+            if self.enemy_units.exists:
                 for enemy_unit in self.enemy_units:
                     if (enemy_unit not in self.known_enemy_u) and (
                             enemy_unit not in self.enemy_structures) and (
@@ -187,12 +211,8 @@ async def roach_rush_step(self, iteration):
                             not enemy_unit.is_flying):
                         self.known_enemy_u.append(enemy_unit)
 
-                for unit_in_known in self.known_enemy_u:
-                    if unit_in_known not in self.enemy_units:
-                        self.known_enemy_u.remove(unit_in_known)
-
                 if len(self.known_enemy_u) > 0 and get_distance(unit.position,
-                                                                self.closest_enemy_unit(unit).position) < 3:
+                                                                self.closest_enemy_unit(unit).position) < 5:
                     unit.attack(self.closest_enemy_unit(unit).position)
 
                 elif (get_distance(unit.position, self.enemy_start_locations[0]) < 7) or (

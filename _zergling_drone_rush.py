@@ -422,18 +422,18 @@ async def zergling_drone_rush_step(self, iteration):
         for unit in forces:
             if (unit not in self.in_micro) and (unit not in self.wall_breakers) and (
                     unit not in self.home_dronny) and (not unit.is_carrying_resource):
-                if self.enemy_units.exists:
 
+                for unit_in_known in self.known_enemy_u:
+                    if unit_in_known not in self.enemy_units:
+                        self.known_enemy_u.remove(unit_in_known)
+
+                if self.enemy_units.exists:
                     for enemy_unit in self.enemy_units:
                         if (enemy_unit not in self.known_enemy_u) and (
                                 enemy_unit not in self.enemy_structures) and (
                                 enemy_unit not in self.enemy_units(UnitTypeId.LARVA)) and (
                                 not enemy_unit.is_flying):
                             self.known_enemy_u.append(enemy_unit)
-
-                    for unit_in_known in self.known_enemy_u:
-                        if unit_in_known not in self.enemy_units:
-                            self.known_enemy_u.remove(unit_in_known)
 
                     if len(self.known_enemy_u) > 0 and get_distance(unit.position,
                                                                     self.closest_enemy_unit(unit).position) < 3:
