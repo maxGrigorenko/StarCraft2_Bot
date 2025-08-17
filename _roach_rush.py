@@ -16,7 +16,11 @@ def borrow_micro(self):
         if roach.health <= 40 and not roach.is_burrowed:
             roach(AbilityId.BURROWDOWN_ROACH)
     for burrowed_roach in self.units(UnitTypeId.ROACHBURROWED):
-        if burrowed_roach.health >= 110 and burrowed_roach.is_burrowed:
+        health_up_border = 110
+        closest_roach = self.closest_unit([unit for unit in self.units(UnitTypeId.ROACH)], burrowed_roach)
+        if get_distance(burrowed_roach.position, closest_roach.position) < 3:
+            health_up_border = 70
+        if burrowed_roach.health >= health_up_border and burrowed_roach.is_burrowed:
             burrowed_roach(AbilityId.BURROWUP_ROACH)
 
     for queen in self.units(UnitTypeId.QUEEN):

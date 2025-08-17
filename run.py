@@ -19,8 +19,10 @@ def refresh_statistics(result, opponent_id):
         """
 
         statistics_text = f.read()
+        
+    with open("data/chosen_strategy.txt") as f:
+        strategy = int(f.read())
 
-    print(f"{statistics_text=}")
     massive = statistics_text.strip().split('\n')
     index = None
     string = f"{opponent_id}: 0 0 0 0 0 0"
@@ -32,17 +34,28 @@ def refresh_statistics(result, opponent_id):
                 break
 
     split_str = string.split(':')
-    split_str_1 = split_str[1].strip().split(' ')
+    split_results = list(map(int, split_str[1].strip().split(' ')))
 
-    while len(split_str_1) < 6:
-        split_str_1.append('0')
+    while len(split_results) < 6:
+        split_results.append(0)
+        
+    if strategy == 1:
+        increment = 0
+    elif strategy == 2:
+        increment = 3
+    else:
+        print("Unable to read strategy")
+        return
 
     if "Victory" in result:
-        new_string = split_str[0] + f": {str(int(split_str_1[0])+1)} {split_str_1[1]} {split_str_1[2]}"
+        result_index = 0
     elif "Defeat" in result:
-        new_string = split_str[0] + f": {split_str_1[0]} {str(int(split_str_1[1])+1)} {split_str_1[2]}"
+        result_index = 1
     else:
-        new_string = split_str[0] + f": {split_str_1[0]} {split_str_1[1]} {str(int(split_str_1[2])+1)}"
+        result_index = 2
+
+    split_results[result_index + increment] += 1
+    new_string = split_str[0] + f": {' '.join(list(map(str, split_results)))}"
 
     if index is not None:
         massive[index] = new_string
@@ -55,7 +68,7 @@ def refresh_statistics(result, opponent_id):
 def write_file(massive):
     with open("data/statistics.txt", mode='w') as f:
         for string in massive:
-            print(string + '\n')
+            print(string)
             f.write(string + '\n')
 
 

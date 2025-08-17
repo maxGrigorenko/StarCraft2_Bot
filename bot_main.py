@@ -2,6 +2,7 @@
 # import enum
 # import time
 
+import math
 from coordinate_functions import *
 
 import sc2
@@ -16,6 +17,46 @@ from sc2.bot_ai import *
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
+
+
+def choose_strategy(game_results: list):
+    wins1, losses1, draws1, wins2, losses2, draws2 = game_results
+
+    total1 = wins1 + losses1 + draws1
+    total2 = wins2 + losses2 + draws2
+    total_games = total1 + total2
+
+    if total_games == 0:
+        return 2
+
+    def calculate_score(wins, losses, draws, exploration=2.0):
+        n = wins + losses + draws
+        if n == 0:
+            return float('inf')
+
+        points = 3 * wins + draws
+        mean = points / n
+        return mean + exploration * math.sqrt(math.log(total_games) / n)
+
+    score1 = calculate_score(wins1, losses1, draws1)
+    score2 = calculate_score(wins2, losses2, draws2)
+
+    if score2 > score1:
+        return 2
+    elif score1 > score2:
+        return 1
+
+    if total1 == 0:
+        return 1
+    if total2 == 0:
+        return 2
+
+    if losses1 < losses2:
+        return 1
+    elif losses2 < losses1:
+        return 2
+
+    return 1 if total1 >= total2 else 2
 
 
 class SmallBly(BotAI):
@@ -77,18 +118,37 @@ class SmallBly(BotAI):
         # mineral filed standard distance: 6-8
         # {hatchery: {mineral1: [drone1, drone2], mineral2: [drone1, drone2], ...}, ... }
 
-    def choose_strategy(self):
-        opp_id = self.opponent_id
+    def read_and_choose_strategy(self):
+        opponent_id = self.opponent_id
+        if opponent_id is None:
+            self.strategy = 2
+            return
+
         with open("data/statistics.txt") as f:
             statistics_text = f.read()
 
         massive = statistics_text.strip().split('\n')
-        self.strategy = 2
+        string = f"{opponent_id}: 0 0 0 0 0 0"
+        if opponent_id in statistics_text:
+            for i in range(len(massive)):
+                string = massive[i]
+                if opponent_id in string:
+                    break
+
+        split_str = string.split(':')
+        game_results = list(map(int, split_str[1].strip().split(' ')))
+        self.strategy = choose_strategy(game_results)
 
     async def on_step(self, iteration):  # 168 iterations per minute ~ 3 iterations per second
         if not self.strategy:
-            self.choose_strategy()
-            print(f"{self.strategy=}")
+            try:
+                self.read_and_choose_strategy()
+                print(f"{self.strategy=}")
+            except BaseException:
+                print("Exception while choosing strategy")
+
+            if self.strategy != 1 and self.strategy != 2:
+                self.strategy = 1
 
             with open("data/chosen_strategy.txt", mode='w') as f:
                 f.write(str(self.strategy))
