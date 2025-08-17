@@ -8,7 +8,7 @@ from _universal_functions import *
 from _speed_mining import *
 
 
-def borrow_micro(self):
+def burrow_micro(self):
     if UpgradeId.BURROW not in self.state.upgrades:
         return
 
@@ -17,9 +17,10 @@ def borrow_micro(self):
             roach(AbilityId.BURROWDOWN_ROACH)
     for burrowed_roach in self.units(UnitTypeId.ROACHBURROWED):
         health_up_border = 110
-        closest_roach = self.closest_unit([unit for unit in self.units(UnitTypeId.ROACH)], burrowed_roach)
-        if get_distance(burrowed_roach.position, closest_roach.position) < 3:
-            health_up_border = 70
+        if self.units(UnitTypeId.ROACH).amount > 0:
+            closest_roach = self.closest_unit([unit for unit in self.units(UnitTypeId.ROACH)], burrowed_roach)
+            if get_distance(burrowed_roach.position, closest_roach.position) < 3:
+                health_up_border = 70
         if burrowed_roach.health >= health_up_border and burrowed_roach.is_burrowed:
             burrowed_roach(AbilityId.BURROWUP_ROACH)
 
@@ -36,7 +37,7 @@ async def roach_rush_step(self, iteration):
     await self.overlord_management()
     await self.queen_management()
     await self.micro_element()
-    self.borrow_micro()
+    self.burrow_micro()
 
     if self.units(UnitTypeId.ROACH).amount >= 16:
         if self.enemy_race == Race.Terran and not self.need_to_attack_main_base:
@@ -89,9 +90,9 @@ async def roach_rush_step(self, iteration):
             self.train(UnitTypeId.DRONE)
 
     if not self.dronny or self.dronny is None:
-        self.dronny = self.closest_unit(
-            [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
-            self.enemy_start_locations[0])
+        drones_without_minerals = [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
+        if len(drones_without_minerals) >= 1:
+            self.dronny = self.closest_unit(drones_without_minerals, self.enemy_start_locations[0])
 
     # BUILDING SPAWNING POOL
 
@@ -99,7 +100,7 @@ async def roach_rush_step(self, iteration):
         self.dronny = self.refresh_unit(self.dronny)
         dronny = self.dronny
         distance = 8
-        if self.time < 70:
+        if self.time < 70 and dronny is not None:
             if 200 > self.minerals > 140 and not dronny.is_carrying_resource and get_distance(dronny.position,
                                                                                               self.start_location) < distance:
                 dronny.move(self.enemy_start_locations[0])
@@ -114,8 +115,7 @@ async def roach_rush_step(self, iteration):
             elif get_distance(dronny.position, self.start_location) >= distance and self.minerals > 160:
                 dronny.move(dronny.position)
 
-        elif self.minerals >= 200 and self.units(UnitTypeId.DRONE).amount > 0:
-            dronny = self.units(UnitTypeId.DRONE).random
+        elif self.minerals >= 200 and self.units(UnitTypeId.DRONE).amount > 0 and dronny is not None:
             await self.build(UnitTypeId.SPAWNINGPOOL, build_worker=dronny, near=first_base)
             if dronny not in self.building_workers:
                 self.building_workers.append(dronny)
@@ -124,8 +124,9 @@ async def roach_rush_step(self, iteration):
 
     if self.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and\
             (self.structures(UnitTypeId.EXTRACTOR).amount + self.already_pending(UnitTypeId.EXTRACTOR) == 0):
-        dronny = self.refresh_unit(self.dronny)
-        if self.can_afford(UnitTypeId.EXTRACTOR):
+        self.dronny = self.refresh_unit(self.dronny)
+        dronny = self.dronny
+        if self.can_afford(UnitTypeId.EXTRACTOR) and dronny is not None:
             target = self.vespene_geyser.closest_to(
                 dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
             dronny.build(UnitTypeId.EXTRACTOR, target)
@@ -138,34 +139,36 @@ async def roach_rush_step(self, iteration):
             w = self.workers.closer_than(6, extractor)
             if w.exists:
                 drone = w.random
-                drone.gather(extractor)  # !!!
+                drone.gather(extractor)
                 self.drones_on_gas.append(drone)
 
     # BUILDING ROACH WARREN
 
     if self.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
             (self.structures(UnitTypeId.ROACHWARREN).amount + self.already_pending(UnitTypeId.ROACHWARREN) == 0):
-        dronny = self.refresh_unit(self.dronny)
+        self.dronny = self.refresh_unit(self.dronny)
+        dronny = self.dronny
         if not dronny or dronny is None:
-            self.dronny = self.closest_unit(
-                [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
-                self.enemy_start_locations[0])
-            dronny = self.dronny
+            drones_without_minerals = [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
+            if len(drones_without_minerals) >= 1:
+                self.dronny = self.closest_unit(drones_without_minerals, self.enemy_start_locations[0])
+                dronny = self.dronny
 
         distance = 8
-        if self.time > 55 and not dronny.is_carrying_resource and \
-                get_distance(dronny.position, self.start_location) < distance:
-            dronny.move(self.enemy_start_locations[0])
-            if dronny not in self.building_workers:
-                self.building_workers.append(dronny)
+        if dronny is not None:
+            if self.time > 55 and not dronny.is_carrying_resource and \
+                    get_distance(dronny.position, self.start_location) < distance:
+                dronny.move(self.enemy_start_locations[0])
+                if dronny not in self.building_workers:
+                    self.building_workers.append(dronny)
 
-        elif self.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and self.can_afford(UnitTypeId.ROACHWARREN):
-            await self.build(UnitTypeId.ROACHWARREN, build_worker=dronny, near=dronny)
-            if dronny not in self.building_workers:
-                self.building_workers.append(dronny)
+            elif self.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and self.can_afford(UnitTypeId.ROACHWARREN):
+                await self.build(UnitTypeId.ROACHWARREN, build_worker=dronny, near=dronny)
+                if dronny not in self.building_workers:
+                    self.building_workers.append(dronny)
 
-        elif get_distance(dronny.position, self.start_location) >= distance:
-            dronny.move(dronny.position)
+            elif get_distance(dronny.position, self.start_location) >= distance:
+                dronny.move(dronny.position)
 
     # GOING MACRO
 

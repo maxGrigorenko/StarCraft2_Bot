@@ -77,7 +77,7 @@ class SmallBly(BotAI):
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
         wall_breaker_do_block, macro_element
 
-    from _roach_rush import roach_rush_step, borrow_micro
+    from _roach_rush import roach_rush_step, burrow_micro
 
     def __init__(self):
         super().__init__()
@@ -137,6 +137,11 @@ class SmallBly(BotAI):
 
         split_str = string.split(':')
         game_results = list(map(int, split_str[1].strip().split(' ')))
+
+        while len(game_results) < 6:
+            game_results.append(0)
+
+        print(f"{game_results=}")
         self.strategy = choose_strategy(game_results)
 
     async def on_step(self, iteration):  # 168 iterations per minute ~ 3 iterations per second
