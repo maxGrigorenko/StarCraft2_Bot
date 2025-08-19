@@ -204,8 +204,10 @@ async def wall_breaker_do_block(self, breakers_quantity=1):
 
                     breaker.move(self.place)
 
-        elif breaker.health <= 10 and get_distance(breaker.position, self.closest_enemy_unit(breaker).position) < 3:
-            breaker.move(self.enemy_locations()[1])
+        else:
+            if len(self.all_enemy_units) > 0:
+                if breaker.health <= 10 and get_distance(breaker.position, self.closest_enemy_unit(breaker).position) < 3:
+                    breaker.move(self.enemy_locations()[1])
 
 
 async def zergling_drone_rush_step(self, iteration):
@@ -272,7 +274,6 @@ async def zergling_drone_rush_step(self, iteration):
 
     if not self.units(UnitTypeId.ZERGLING).exists:
         await self.defending()
-
     else:
         self.defence = False
 
@@ -450,7 +451,8 @@ async def zergling_drone_rush_step(self, iteration):
                     unit.move(self.enemy_start_locations[0])
 
         for queen in self.units(UnitTypeId.QUEEN):
-            if queen.is_idle:
+            if queen.is_idle and \
+                    not (get_distance(queen.position, self.townhalls.first.position) < 8 and queen.energy >= 25):
                 queen.attack(self.enemy_start_locations[0])
 
     elif not self.need_to_attack_main_base:

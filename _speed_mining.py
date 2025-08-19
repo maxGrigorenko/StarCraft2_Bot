@@ -88,12 +88,9 @@ def refresh_mining_data(self, drones):
     mineral_filed_distances = dict(sorted(self.mineral_field_distances.items(), key=lambda x: x[1]))
 
     for mineral_field in self.mining_mineral_data.keys():  # mineral_data.values() = [[drone1, drone2], [drone1, drone2], ...]
-
         busy_drones_array = self.mining_mineral_data[mineral_field]
         if len(busy_drones_array) > 0:
-
             for busy_drone in busy_drones_array:
-
                 if busy_drone in drones:
                     drones.remove(busy_drone)
                 else:

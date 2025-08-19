@@ -167,7 +167,7 @@ class SmallBly(BotAI):
 
 def main():
     run_game(sc2.maps.get("2000AtmospheresAIE"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE
+        Human(Race.Protoss),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE
         # Bot(Race.Zerg, SmallBly()),
         Bot(Race.Zerg, SmallBly()),
         # Computer(Race.Protoss, Difficulty.CheatInsane),

@@ -13,10 +13,10 @@ def burrow_micro(self):
         return
 
     for roach in self.units(UnitTypeId.ROACH):
-        if roach.health <= 40 and not roach.is_burrowed:
+        if roach.health <= 54 and not roach.is_burrowed:
             roach(AbilityId.BURROWDOWN_ROACH)
     for burrowed_roach in self.units(UnitTypeId.ROACHBURROWED):
-        health_up_border = 110
+        health_up_border = 120
         if self.units(UnitTypeId.ROACH).amount > 0:
             closest_roach = self.closest_unit([unit for unit in self.units(UnitTypeId.ROACH)], burrowed_roach)
             if get_distance(burrowed_roach.position, closest_roach.position) < 3:
@@ -25,10 +25,10 @@ def burrow_micro(self):
             burrowed_roach(AbilityId.BURROWUP_ROACH)
 
     for queen in self.units(UnitTypeId.QUEEN):
-        if queen.health <= 40 and not queen.is_burrowed:
+        if queen.health <= 50 and not queen.is_burrowed:
             queen(AbilityId.BURROWDOWN_QUEEN)
     for burrowed_queen in self.units(UnitTypeId.QUEENBURROWED):
-        if burrowed_queen.health >= 110 and burrowed_queen.is_burrowed:
+        if burrowed_queen.health >= 100 and burrowed_queen.is_burrowed:
             burrowed_queen(AbilityId.BURROWUP_QUEEN)
 
 
@@ -135,12 +135,13 @@ async def roach_rush_step(self, iteration):
 
     for extractor in self.structures(UnitTypeId.EXTRACTOR):
         if extractor.assigned_harvesters < extractor.ideal_harvesters and \
-                self.structures(UnitTypeId.EXTRACTOR).ready.exists:
+                self.structures(UnitTypeId.EXTRACTOR).ready.exists and not self.defence:
             w = self.workers.closer_than(6, extractor)
             if w.exists:
                 drone = w.random
-                drone.gather(extractor)
-                self.drones_on_gas.append(drone)
+                if drone != self.dronny:
+                    drone.gather(extractor)
+                    self.drones_on_gas.append(drone)
 
     # BUILDING ROACH WARREN
 
@@ -233,7 +234,8 @@ async def roach_rush_step(self, iteration):
                 unit.move(self.enemy_start_locations[0])
 
         for queen in self.units(UnitTypeId.QUEEN):
-            if queen.is_idle:
+            if queen.is_idle and \
+                    not (get_distance(queen.position, self.townhalls.first.position) < 8 and queen.energy >= 25):
                 queen.attack(self.enemy_start_locations[0])
 
     elif not self.need_to_attack_main_base:

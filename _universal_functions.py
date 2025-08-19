@@ -126,12 +126,7 @@ async def overlord_management(self):
     if len(self.busy_overlords) < len(self.get_locations()) - 2:
         for overlord in self.units(UnitTypeId.OVERLORD):
             if overlord not in self.busy_overlords:
-
-                if self.enemy_race == Race.Terran:
-                    overlord.move(self.enemy_locations()[len(self.busy_overlords) + 1])
-                else:
-                    overlord.move(self.enemy_locations()[len(self.busy_overlords)])
-
+                overlord.move(self.enemy_locations()[len(self.busy_overlords) + 1])
                 self.busy_overlords.append(overlord)
 
 
@@ -235,24 +230,44 @@ async def group_units(self, middle_unit, max_distance):
 async def defending(self):
     piece = True
 
-    if len(self.enemy_units) > 0:
+    close_enemies = []
+    if len(self.enemy_units) > 0 and not self.is_units_health_max():
         for enemy in self.enemy_units:
-            if get_distance(enemy.position, self.start_location) < 6 and not self.is_units_health_max():
-                print("Defending")
-                piece = False
-                for unit in self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING):
-                    unit.attack(self.enemy_start_locations[0])
+            if get_distance(enemy.position, self.start_location) < 12:
+                close_enemies.append(enemy)
 
-                self.defence = True
-            break
+        enemies_in_attack_amount = len(close_enemies)
+        if enemies_in_attack_amount > 0:
+            print("Defending")
+            piece = False
+
+            if enemies_in_attack_amount <= 3:
+                defenders_amount = enemies_in_attack_amount + 1
+            elif enemies_in_attack_amount <= 6:
+                defenders_amount = enemies_in_attack_amount + 2
+            else:
+                defenders_amount = int(enemies_in_attack_amount * 1.3) + 1
+
+            if len(self.attack_drones) < defenders_amount:
+                for unit in self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING):
+                    self.attack_drones.append(unit)
+                    if unit in self.drones_on_gas:
+                        self.drones_on_gas.remove(unit)
+                    if len(self.attack_drones) >= defenders_amount:
+                        break
+
+            for unit in self.attack_drones:
+                unit.attack(self.closest_unit(close_enemies, unit).position)
+
+            self.defence = True
 
         if piece and self.defence:
             self.defence = False
-            await self.distribute_workers()
+            self.attack_drones = []
 
     if len(self.enemy_units) == 0 and self.defence:
-        await self.distribute_workers()
         self.defence = False
+        self.attack_drones = []
 
 
 async def micro_element(self):
@@ -331,7 +346,6 @@ async def mining_iteration(self):
 
         drones = []
         for drone in self.units(UnitTypeId.DRONE):
-
             if (drone not in self.wall_breakers) and\
                     (drone not in self.attack_drones) and\
                     (drone not in self.building_workers) and\
