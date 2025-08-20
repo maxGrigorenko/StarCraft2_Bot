@@ -12,9 +12,12 @@ def burrow_micro(self):
     if UpgradeId.BURROW not in self.state.upgrades:
         return
 
+    self.in_burrow_process = [roach for roach in self.units(UnitTypeId.ROACH) if roach.health <= 54]
+
     for roach in self.units(UnitTypeId.ROACH):
         if roach.health <= 54 and not roach.is_burrowed:
             roach(AbilityId.BURROWDOWN_ROACH)
+
     for burrowed_roach in self.units(UnitTypeId.ROACHBURROWED):
         health_up_border = 130
         if self.units(UnitTypeId.ROACH).amount > 0:
@@ -211,7 +214,7 @@ async def roach_rush_step(self, iteration):
                 if unit_in_known not in self.enemy_units:
                     self.known_enemy_u.remove(unit_in_known)
 
-            if self.enemy_units.exists:
+            if self.enemy_units.exists and unit not in self.in_burrow_process:
                 for enemy_unit in self.enemy_units:
                     if (enemy_unit not in self.known_enemy_u) and (
                             enemy_unit not in self.enemy_structures) and (
