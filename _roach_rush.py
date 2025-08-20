@@ -220,7 +220,7 @@ async def roach_rush_step(self, iteration):
                         self.known_enemy_u.append(enemy_unit)
 
                 if self.units(UnitTypeId.ROACHBURROWED).amount >= 1 and \
-                        get_distance(self.closest_unit(self.units(UnitTypeId.ROACHBURROWED), unit).position, unit.position) <= 2 and \
+                        get_distance(self.closest_unit(self.units(UnitTypeId.ROACHBURROWED), unit).position, unit.position) < 1.25 and \
                         self.units(UnitTypeId.ROACH).amount < 15 and self.units(UnitTypeId.QUEEN).amount < 3:
                     unit.move(self.townhalls.first)
 
