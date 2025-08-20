@@ -51,10 +51,13 @@ def refresh_statistics(result, opponent_id):
         result_index = 0
     elif "Defeat" in result:
         result_index = 1
-    else:
+    elif "Tie" in result:
         result_index = 2
+    else:
+        result_index = -1
 
-    split_results[result_index + increment] += 1
+    if result_index != -1:
+        split_results[result_index + increment] += 1
     new_string = split_str[0] + f": {' '.join(list(map(str, split_results)))}"
 
     if index is not None:
