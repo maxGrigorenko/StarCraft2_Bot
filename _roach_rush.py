@@ -16,11 +16,11 @@ def burrow_micro(self):
         if roach.health <= 54 and not roach.is_burrowed:
             roach(AbilityId.BURROWDOWN_ROACH)
     for burrowed_roach in self.units(UnitTypeId.ROACHBURROWED):
-        health_up_border = 120
+        health_up_border = 130
         if self.units(UnitTypeId.ROACH).amount > 0:
             closest_roach = self.closest_unit([unit for unit in self.units(UnitTypeId.ROACH)], burrowed_roach)
             if get_distance(burrowed_roach.position, closest_roach.position) < 3:
-                health_up_border = 70
+                health_up_border = 85
         if burrowed_roach.health >= health_up_border and burrowed_roach.is_burrowed:
             burrowed_roach(AbilityId.BURROWUP_ROACH)
 
@@ -219,7 +219,12 @@ async def roach_rush_step(self, iteration):
                             not enemy_unit.is_flying):
                         self.known_enemy_u.append(enemy_unit)
 
-                if len(self.known_enemy_u) > 0 and get_distance(unit.position,
+                if self.units(UnitTypeId.ROACHBURROWED).amount >= 1 and \
+                        get_distance(self.closest_unit(self.units(UnitTypeId.ROACHBURROWED), unit).position, unit.position) <= 2 and \
+                        self.units(UnitTypeId.ROACH).amount < 15 and self.units(UnitTypeId.QUEEN).amount < 3:
+                    unit.move(self.townhalls.first)
+
+                elif len(self.known_enemy_u) > 0 and get_distance(unit.position,
                                                                 self.closest_enemy_unit(unit).position) < 5:
                     unit.attack(self.closest_enemy_unit(unit).position)
 
