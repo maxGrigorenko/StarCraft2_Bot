@@ -86,7 +86,7 @@ async def roach_rush_step(self, iteration):
 
     if len(self.mining_drones) < first_base.ideal_harvesters and (self.need_air_units or not self.stop_drone):
         if self.can_afford(UnitTypeId.DRONE) and larvae.exists and (
-                self.time < 67 or self.structures(UnitTypeId.ROACHWARREN).ready.exists):
+                (self.time < 70 and self.supply_used < 14) or self.structures(UnitTypeId.ROACHWARREN).ready.exists):
             self.train(UnitTypeId.DRONE)
 
     if not self.dronny or self.dronny is None:
