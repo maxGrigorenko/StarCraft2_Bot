@@ -209,37 +209,34 @@ async def roach_rush_step(self, iteration):
             not self.no_units_in_opponent_main() and self.time > 100)) and self.need_to_attack_main_base:
 
         for unit in forces:
+            if unit not in self.in_burrow_process:
+                for unit_in_known in self.known_enemy_u:
+                    if unit_in_known not in self.enemy_units:
+                        self.known_enemy_u.remove(unit_in_known)
 
-            for unit_in_known in self.known_enemy_u:
-                if unit_in_known not in self.enemy_units:
-                    self.known_enemy_u.remove(unit_in_known)
+                if self.enemy_units.exists:
+                    for enemy_unit in self.enemy_units:
+                        if (enemy_unit not in self.known_enemy_u) and (
+                                enemy_unit not in self.enemy_structures) and (
+                                enemy_unit not in self.enemy_units(UnitTypeId.LARVA)) and (
+                                not enemy_unit.is_flying):
+                            self.known_enemy_u.append(enemy_unit)
 
-            if self.enemy_units.exists and unit not in self.in_burrow_process:
-                for enemy_unit in self.enemy_units:
-                    if (enemy_unit not in self.known_enemy_u) and (
-                            enemy_unit not in self.enemy_structures) and (
-                            enemy_unit not in self.enemy_units(UnitTypeId.LARVA)) and (
-                            not enemy_unit.is_flying):
-                        self.known_enemy_u.append(enemy_unit)
-
-                if self.units(UnitTypeId.ROACHBURROWED).amount >= 1 and \
-                        get_distance(self.closest_unit(self.units(UnitTypeId.ROACHBURROWED), unit).position, unit.position) < 1.25 and \
-                        self.units(UnitTypeId.ROACH).amount < 15 and self.units(UnitTypeId.QUEEN).amount < 3:
-                    unit.move(self.townhalls.first)
-
-                elif len(self.known_enemy_u) > 0 and get_distance(unit.position,
-                                                                self.closest_enemy_unit(unit).position) < 5:
-                    unit.attack(self.closest_enemy_unit(unit).position)
-
-                elif (get_distance(unit.position, self.enemy_start_locations[0]) < 7) or (
-                        unit.health_max - unit.health > 0):
-                    unit.attack(self.enemy_start_locations[0])
+                    if self.units(UnitTypeId.ROACHBURROWED).amount >= 1 and \
+                            get_distance(self.closest_unit(self.units(UnitTypeId.ROACHBURROWED), unit).position, unit.position) < 1.25 and \
+                            self.units(UnitTypeId.ROACH).amount < 15 and self.units(UnitTypeId.QUEEN).amount < 3:
+                        unit.move(self.townhalls.first)
+                    elif len(self.known_enemy_u) > 0 and get_distance(unit.position,
+                                                                    self.closest_enemy_unit(unit).position) < 5:
+                        unit.attack(self.closest_enemy_unit(unit).position)
+                    elif (get_distance(unit.position, self.enemy_start_locations[0]) < 7) or (
+                            unit.health_max - unit.health > 0):
+                        unit.attack(self.enemy_start_locations[0])
+                    else:
+                        unit.move(self.enemy_start_locations[0])
 
                 else:
                     unit.move(self.enemy_start_locations[0])
-
-            else:
-                unit.move(self.enemy_start_locations[0])
 
         for queen in self.units(UnitTypeId.QUEEN):
             if queen.is_idle and \
