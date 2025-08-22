@@ -488,3 +488,17 @@ async def macro_element(self):
                 larva.train(UnitTypeId.MUTALISK)
                 return
 
+
+def manage_queen_attack(self):
+    for queen in self.units(UnitTypeId.QUEEN):
+        if queen.is_idle and \
+                not (get_distance(queen.position, self.townhalls.first.position) < 8 and queen.energy >= 25):
+            if self.enemy_units.exists:
+                closest_enemy = self.closest_enemy_unit(self.townhalls.first)
+                if get_distance(closest_enemy.position, self.townhalls.first.position) < 14 and \
+                        get_distance(closest_enemy.position, queen.position) < 20:
+                    queen.attack(closest_enemy.position)
+                else:
+                    queen.attack(self.enemy_start_locations[0])
+            else:
+                queen.attack(self.enemy_start_locations[0])

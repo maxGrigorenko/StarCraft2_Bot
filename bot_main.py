@@ -71,7 +71,7 @@ class SmallBly(BotAI):
         closest_enemy_unit, closest_unit, enemy_locations, overlord_management, \
         map_scout, need_group, group_units, defending, micro_element, queen_management, \
         no_units_in_opponent_main, proxy, mining_iteration, find_final_structures, \
-        is_opponents_main_won
+        is_opponents_main_won, manage_queen_attack
 
     from _zergling_drone_rush import prominent_structures, zergling_drone_rush_step, \
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
@@ -113,6 +113,7 @@ class SmallBly(BotAI):
         self.mining_mineral_data = {}  # {mineral_filed1: [drone1, drone2], mineral_field2: [drone1, drone2], ...}
         self.mining_drone_data = {}  # {drone1: [hatchery_position_mining, mineral_position_mining], drone2: [position1, position2], ...}
         self.mineral_field_distances = {}
+        self.in_burrow_process = []
         self.strategy = False
 
         # mineral filed standard distance: 6-8
@@ -171,10 +172,10 @@ def main():
         # Bot(Race.Zerg, SmallBly()),
         Bot(Race.Zerg, SmallBly()),
         # Computer(Race.Protoss, Difficulty.CheatInsane),
-    ], realtime=False,
+    ], realtime=True,
              disable_fog=False,
-             random_seed=1
-             # save_replay_as="smallBly_vs_smallBly_20-06-2022.SC2Replay",
+             random_seed=1,
+             # save_replay_as="smallBly_vs_smallBly_21-08-2025.SC2Replay",
              )
 
 

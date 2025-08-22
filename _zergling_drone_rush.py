@@ -450,10 +450,7 @@ async def zergling_drone_rush_step(self, iteration):
                 else:
                     unit.move(self.enemy_start_locations[0])
 
-        for queen in self.units(UnitTypeId.QUEEN):
-            if queen.is_idle and \
-                    not (get_distance(queen.position, self.townhalls.first.position) < 8 and queen.energy >= 25):
-                queen.attack(self.enemy_start_locations[0])
+        self.manage_queen_attack()
 
     elif not self.need_to_attack_main_base:
         await self.find_final_structures(forces=forces, army=(self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING)))
