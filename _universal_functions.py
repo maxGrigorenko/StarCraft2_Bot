@@ -121,7 +121,10 @@ async def overlord_management(self):
     if len(self.busy_overlords) < len(self.get_locations()) - 2:
         for overlord in self.units(UnitTypeId.OVERLORD):
             if overlord not in self.busy_overlords:
-                overlord.move(self.enemy_locations()[len(self.busy_overlords) + 1])
+                if len(self.busy_overlords) == 0:
+                    overlord.move(self.two_enemy_ramps[0].bottom_center)
+                else:
+                    overlord.move(self.enemy_locations()[len(self.busy_overlords) + 1])
                 self.busy_overlords.append(overlord)
 
 
