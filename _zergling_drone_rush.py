@@ -440,15 +440,19 @@ async def zergling_drone_rush_step(self, iteration):
                                                                     self.closest_enemy_unit(unit).position) < 3:
                         unit.attack(self.closest_enemy_unit(unit).position)
 
-                    elif (get_distance(unit.position, self.enemy_start_locations[0]) < 7) or (
-                            unit.health_max - unit.health > 0):
+                    elif get_distance(unit.position, self.enemy_start_locations[0]) < 7:
                         unit.attack(self.enemy_start_locations[0])
 
+                    elif unit.health_max - unit.health > 0:
+                        self.accurate_attack(unit, attack_on_way=True)
+
                     else:
-                        unit.move(self.enemy_start_locations[0])
+                        # unit.move(self.enemy_start_locations[0])
+                        self.accurate_attack(unit, attack_on_way=False)
 
                 else:
-                    unit.move(self.enemy_start_locations[0])
+                    # unit.move(self.enemy_start_locations[0])
+                    self.accurate_attack(unit, attack_on_way=False)
 
         self.manage_queen_attack()
 
