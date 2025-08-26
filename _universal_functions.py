@@ -33,12 +33,7 @@ def select_target(self):
 
 
 def get_locations(self):
-    result = []
-    dr = list(self.expansion_locations.items())
-    for i in range(len(dr)):
-        result.append(dr[i][0])
-
-    return result
+    return self.expansion_locations_list
 
 
 async def base_scout(self, unit, loc_n):
@@ -502,3 +497,56 @@ def manage_queen_attack(self):
                     queen.attack(self.enemy_start_locations[0])
             else:
                 queen.attack(self.enemy_start_locations[0])
+
+
+def find_expand(self):
+    main_rump_position = self.two_enemy_ramps[0].bottom_center
+    locations = self.enemy_locations()[1:]
+    expand = locations[0]
+    for location in locations:
+        if get_distance(main_rump_position, location) < get_distance(main_rump_position, expand):
+            expand = location
+    return expand
+
+
+def has_expand_ramp(self):
+    if not self.expand:
+        self.expand = self.find_expand()
+
+    sorted_ramps = sorted(self.game_info.map_ramps,
+                          key=lambda x: get_distance(x.top_center, self.expand.position))
+
+    closest_ramp = sorted_ramps[0]
+    if closest_ramp == self.two_enemy_ramps[0]:
+        closest_ramp = sorted_ramps[1]
+    self.two_enemy_ramps[1] = closest_ramp
+
+    ramp_distance = get_distance(self.expand, closest_ramp.top_center)
+    print(f"{ramp_distance=}")
+
+    if ramp_distance > 14:
+        return False
+    return True
+
+
+def accurate_attack(self, unit, attack_on_way=False):
+    close_to_expand_ramp = get_distance(unit.position, self.two_enemy_ramps[1].top_center) < 2
+    close_to_main_ramp = get_distance(unit.position, self.two_enemy_ramps[0].top_center) < 2
+    if unit not in self.expand_ramp_passed and self.expand_rump_exist:
+        target = self.two_enemy_ramps[1].top_center
+        if close_to_expand_ramp:
+            self.expand_ramp_passed.append(unit)
+    elif unit not in self.main_ramp_passed:
+        target = self.two_enemy_ramps[0].top_center
+        if close_to_main_ramp:
+            self.main_ramp_passed.append(unit)
+    else:
+        target = self.enemy_start_locations[0].position
+
+    if attack_on_way or (close_to_expand_ramp and self.expand_rump_exist) or close_to_main_ramp:
+        unit.attack(target)
+    else:
+        unit.move(target)
+
+
+

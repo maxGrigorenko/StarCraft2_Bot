@@ -17,6 +17,7 @@ from sc2.bot_ai import *
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
+from sc2.game_info import GameInfo, Ramp
 
 
 def choose_strategy(game_results: list):
@@ -71,7 +72,7 @@ class SmallBly(BotAI):
         closest_enemy_unit, closest_unit, enemy_locations, overlord_management, \
         map_scout, need_group, group_units, defending, micro_element, queen_management, \
         no_units_in_opponent_main, proxy, mining_iteration, find_final_structures, \
-        is_opponents_main_won, manage_queen_attack
+        is_opponents_main_won, manage_queen_attack, find_expand, has_expand_ramp, accurate_attack
 
     from _zergling_drone_rush import prominent_structures, zergling_drone_rush_step, \
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
@@ -114,6 +115,11 @@ class SmallBly(BotAI):
         self.mining_drone_data = {}  # {drone1: [hatchery_position_mining, mineral_position_mining], drone2: [position1, position2], ...}
         self.mineral_field_distances = {}
         self.in_burrow_process = []
+        self.two_enemy_ramps = []
+        self.expand = False
+        self.expand_rump_exist = False
+        self.expand_ramp_passed = []
+        self.main_ramp_passed = []
         self.strategy = False
 
         # mineral filed standard distance: 6-8
@@ -159,6 +165,13 @@ class SmallBly(BotAI):
             with open("data/chosen_strategy.txt", mode='w') as f:
                 f.write(str(self.strategy))
 
+        if len(self.two_enemy_ramps) == 0:
+            sorted_ramps = sorted(self.game_info.map_ramps,
+                                  key=lambda x: get_distance(x.top_center, self.enemy_start_locations[0].position))
+            self.two_enemy_ramps = sorted_ramps[:2]
+            self.expand_rump_exist = self.has_expand_ramp()
+            print(self.expand_rump_exist)
+
         if self.strategy == 1:
             await self.zergling_drone_rush_step(iteration=iteration)
 
@@ -167,14 +180,14 @@ class SmallBly(BotAI):
 
 
 def main():
-    run_game(sc2.maps.get("2000AtmospheresAIE"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE
-        # Bot(Race.Zerg, SmallBly()),
+    run_game(sc2.maps.get("TorchesAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
+        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+        # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
         Bot(Race.Zerg, SmallBly()),
         # Computer(Race.Protoss, Difficulty.CheatInsane),
-    ], realtime=True,
+    ], realtime=False,
              disable_fog=False,
-             random_seed=1,
+             random_seed=0,
              # save_replay_as="smallBly_vs_smallBly_21-08-2025.SC2Replay",
              )
 

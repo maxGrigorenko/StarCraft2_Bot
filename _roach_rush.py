@@ -243,19 +243,24 @@ async def roach_rush_step(self, iteration):
                         unit.move(self.townhalls.first)
 
                     elif len(self.known_enemy_u) > 0 and get_distance(unit.position, closest_enemy_to_unit.position) < 5 or \
-                            (get_distance(closest_enemy_to_base.position, self.townhalls.first.position) < 14 and
-                             get_distance(closest_enemy_to_base.position, unit.position) < 20):
+                            (get_distance(closest_enemy_to_base.position, self.townhalls.first.position) < 12 and
+                             get_distance(closest_enemy_to_base.position, unit.position) < 13) and not closest_enemy_to_base.is_flying:
                         unit.attack(closest_enemy_to_base.position)
 
-                    elif (get_distance(unit.position, self.enemy_start_locations[0]) < 7) or (
-                            unit.health_max - unit.health > 0):
+                    elif get_distance(unit.position, self.enemy_start_locations[0]) < 7:
                         unit.attack(self.enemy_start_locations[0])
 
+                    elif unit.health_max - unit.health > 0:
+                        # unit.attack(self.enemy_start_locations[0])
+                        self.accurate_attack(unit, attack_on_way=True)
+
                     else:
-                        unit.move(self.enemy_start_locations[0])
+                        # unit.move(self.enemy_start_locations[0])
+                        self.accurate_attack(unit, attack_on_way=False)
 
                 else:
-                    unit.move(self.enemy_start_locations[0])
+                    # unit.move(self.enemy_start_locations[0])
+                    self.accurate_attack(unit, attack_on_way=False)
 
         self.manage_queen_attack()
 
