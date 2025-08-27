@@ -37,7 +37,9 @@ def burrow_micro(self):
 
     if self.enemy_units.exists:
         for drone in self.units(UnitTypeId.DRONE):
-            if drone.health < drone.health_max - 5 and get_distance(self.closest_enemy_unit(drone).position, drone.position) <= 10:
+            if drone.health < drone.health_max - 5 and \
+                    get_distance(self.closest_enemy_unit(drone).position, drone.position) <= 10 and \
+                    drone not in self.drones_on_gas:
                 drone(AbilityId.BURROWDOWN_DRONE)
 
     for burrowed_drone in self.units(UnitTypeId.DRONEBURROWED):
