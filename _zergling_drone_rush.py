@@ -395,7 +395,7 @@ async def zergling_drone_rush_step(self, iteration):
 
         if dist_with_dangerous_structures > 100 or (not self.need_to_attack_main_base):
 
-            if self.units(UnitTypeId.ZERGLING).amount < 25:
+            if self.units(UnitTypeId.ZERGLING).amount < 25 and self.time > 200:
                 self.stop_drone = False
                 return
 

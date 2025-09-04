@@ -546,7 +546,8 @@ def accurate_attack(self, unit, attack_on_way=False):
     else:
         target = self.enemy_start_locations[0].position
 
-    if attack_on_way or (close_to_expand_ramp and self.expand_rump_exist) or close_to_main_ramp:
+    close_to_main = get_distance(unit.position, self.enemy_start_locations[0].position) < 3
+    if attack_on_way or (close_to_expand_ramp and self.expand_rump_exist) or close_to_main_ramp or close_to_main:
         unit.attack(target)
     else:
         unit.move(target)
