@@ -14,8 +14,13 @@ def burrow_micro(self):
 
     self.in_burrow_process = [roach for roach in self.units(UnitTypeId.ROACH) if roach.health <= 54]
 
+    detectors = [unit for unit in self.enemy_units if unit.is_detector]
+    for struct in self.enemy_structures:
+        if struct.is_detector:
+            detectors.append(struct)
+
     for roach in self.units(UnitTypeId.ROACH):
-        if roach.health <= 54 and not roach.is_burrowed:
+        if roach.health <= 54 and not roach.is_burrowed and self.closest_unit_dist(unit=roach, units=detectors) > 10:
             roach(AbilityId.BURROWDOWN_ROACH)
 
     for burrowed_roach in self.units(UnitTypeId.ROACHBURROWED):
@@ -24,17 +29,19 @@ def burrow_micro(self):
             closest_roach = self.closest_unit([unit for unit in self.units(UnitTypeId.ROACH)], burrowed_roach)
             if get_distance(burrowed_roach.position, closest_roach.position) < 3:
                 health_up_border = 85
-        if burrowed_roach.health >= health_up_border and burrowed_roach.is_burrowed:
+        if (burrowed_roach.health >= health_up_border and burrowed_roach.is_burrowed) or self.closest_unit_dist(unit=burrowed_roach, units=detectors) < 10:
             burrowed_roach(AbilityId.BURROWUP_ROACH)
 
     for queen in self.units(UnitTypeId.QUEEN):
-        if queen.health <= 50 and not queen.is_burrowed:
+        if queen.health <= 50 and not queen.is_burrowed and self.closest_unit_dist(unit=queen, units=detectors) > 10:
             queen(AbilityId.BURROWDOWN_QUEEN)
 
     for burrowed_queen in self.units(UnitTypeId.QUEENBURROWED):
-        if burrowed_queen.health >= 100 and burrowed_queen.is_burrowed:
+        if (burrowed_queen.health >= 100 and burrowed_queen.is_burrowed) or self.closest_unit_dist(unit=burrowed_queen, units=detectors) < 10:
             burrowed_queen(AbilityId.BURROWUP_QUEEN)
 
+    '''
+    NEED TO REFACTOR SPEEDMINING
     if self.enemy_units.exists:
         for drone in self.units(UnitTypeId.DRONE):
             if drone.health < drone.health_max - 5 and \
@@ -47,6 +54,7 @@ def burrow_micro(self):
             burrowed_drone(AbilityId.BURROWUP_DRONE)
         elif get_distance(self.closest_enemy_unit(burrowed_drone).position, burrowed_drone.position) > 10:
             burrowed_drone(AbilityId.BURROWUP_DRONE)
+    '''
 
 
 async def roach_rush_step(self, iteration):
@@ -64,6 +72,9 @@ async def roach_rush_step(self, iteration):
     with_drone_forces = self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.ROACH) | self.units(
         UnitTypeId.MUTALISK)
     larvae = self.units(UnitTypeId.LARVA)
+    dangerous_structures = (self.enemy_structures(UnitTypeId.PHOTONCANNON) |
+                            self.enemy_structures(UnitTypeId.BUNKER) |
+                            self.enemy_structures(UnitTypeId.SPINECRAWLER))
 
     if not self.townhalls.exists:
         for unit in self.units(UnitTypeId.QUEEN) | with_drone_forces:
@@ -231,6 +242,8 @@ async def roach_rush_step(self, iteration):
                 if self.enemy_units.exists:
                     closest_enemy_to_unit = self.closest_enemy_unit(unit)
                     closest_enemy_to_base = self.closest_enemy_unit(self.townhalls.first)
+                    enemy_near_home_and_unit = (get_distance(closest_enemy_to_base.position, self.townhalls.first.position) < 12 and
+                             get_distance(closest_enemy_to_base.position, unit.position) < 13)
 
                     for enemy_unit in self.enemy_units:
                         if (enemy_unit not in self.known_enemy_u) and (
@@ -244,16 +257,19 @@ async def roach_rush_step(self, iteration):
                             self.units(UnitTypeId.ROACH).amount < 15 and self.units(UnitTypeId.QUEEN).amount < 3:
                         unit.move(self.townhalls.first)
 
-                    elif len(self.known_enemy_u) > 0 and get_distance(unit.position, closest_enemy_to_unit.position) < 5 or \
-                            (get_distance(closest_enemy_to_base.position, self.townhalls.first.position) < 12 and
-                             get_distance(closest_enemy_to_base.position, unit.position) < 13) and not closest_enemy_to_base.is_flying:
+                    elif (len(self.known_enemy_u) > 0 and
+                          ((get_distance(unit.position, closest_enemy_to_unit.position) < 5) or enemy_near_home_and_unit) and
+                            (not closest_enemy_to_base.is_flying) and (self.time > 150 or self.closest_unit_dist(unit=unit, units=dangerous_structures) > 10)):
+                        print("wtf attack")
                         unit.attack(closest_enemy_to_base.position)
 
                     elif get_distance(unit.position, self.enemy_start_locations[0]) < 7:
                         unit.attack(self.enemy_start_locations[0])
 
-                    elif unit.health_max - unit.health > 0:
+                    elif (unit.health_max - unit.health > 0) and \
+                            not (self.time < 150 and self.closest_unit_dist(unit=unit, units=dangerous_structures) < 10):
                         # unit.attack(self.enemy_start_locations[0])
+                        print("attack outside accurate_attack")
                         self.accurate_attack(unit, attack_on_way=True)
 
                     else:
