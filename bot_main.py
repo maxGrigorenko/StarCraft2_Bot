@@ -72,7 +72,8 @@ class SmallBly(BotAI):
         closest_enemy_unit, closest_unit, enemy_locations, overlord_management, \
         map_scout, need_group, group_units, defending, micro_element, queen_management, \
         no_units_in_opponent_main, proxy, mining_iteration, find_final_structures, \
-        is_opponents_main_won, manage_queen_attack, find_expand, has_expand_ramp, accurate_attack
+        is_opponents_main_won, manage_queen_attack, find_expand, has_expand_ramp, \
+        accurate_attack, closest_unit_dist
 
     from _zergling_drone_rush import prominent_structures, zergling_drone_rush_step, \
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \

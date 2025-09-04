@@ -260,7 +260,6 @@ async def roach_rush_step(self, iteration):
                     elif (len(self.known_enemy_u) > 0 and
                           ((get_distance(unit.position, closest_enemy_to_unit.position) < 5) or enemy_near_home_and_unit) and
                             (not closest_enemy_to_base.is_flying) and (self.time > 150 or self.closest_unit_dist(unit=unit, units=dangerous_structures) > 10)):
-                        print("wtf attack")
                         unit.attack(closest_enemy_to_base.position)
 
                     elif get_distance(unit.position, self.enemy_start_locations[0]) < 7:
@@ -269,7 +268,6 @@ async def roach_rush_step(self, iteration):
                     elif (unit.health_max - unit.health > 0) and \
                             not (self.time < 150 and self.closest_unit_dist(unit=unit, units=dangerous_structures) < 10):
                         # unit.attack(self.enemy_start_locations[0])
-                        print("attack outside accurate_attack")
                         self.accurate_attack(unit, attack_on_way=True)
 
                     else:

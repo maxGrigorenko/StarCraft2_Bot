@@ -131,8 +131,10 @@ async def overlord_management(self):
                 else:
                     overlord.move(self.enemy_locations()[len(self.busy_overlords) + 1])
                 self.busy_overlords.append(overlord)
-        if self.closest_unit_dist(unit=overlord, units=air_attack_enemy_units) < 10:
-            overlord.stop()
+        if len(air_attack_enemy_units) > 0:
+            closest_danger_unit = self.closest_unit(units=air_attack_enemy_units, obj=overlord)
+            if get_distance(closest_danger_unit.position, overlord.position) < 10:
+                overlord.move(go_from_point(unit_position=overlord.position, dangerous_position=closest_danger_unit.position, dist=1))
 
 
 async def map_scout(self, army):
@@ -555,7 +557,6 @@ def accurate_attack(self, unit, attack_on_way=False):
 
     close_to_main = get_distance(unit.position, self.enemy_start_locations[0].position) < 3
     if attack_on_way or (close_to_expand_ramp and self.expand_rump_exist) or close_to_main_ramp or close_to_main:
-        print("attack in accurate_attack")
         unit.attack(target)
     else:
         unit.move(target)
