@@ -107,6 +107,7 @@ class SmallBly(BotAI):
         self.stop_crawl = False
         self.stop_new_drone_attack_time = 100
         self.canceled_crawl = False
+        self.muta_tagged = False
         self.attack_drones = []
         self.drones_on_gas = []
         self.building_workers = []
@@ -152,6 +153,14 @@ class SmallBly(BotAI):
         print(f"{game_results=}")
         self.strategy = choose_strategy(game_results)
 
+    async def tag_strategy(self):
+        if self.strategy == 1:
+            await self.chat_send(message="Tag: zerglings", team_only=True)
+
+        elif self.strategy == 2:
+            await self.chat_send(message="Tag: roaches", team_only=True)
+
+
     async def on_step(self, iteration):  # 168 iterations per minute ~ 3 iterations per second
         if not self.strategy:
             try:
@@ -162,6 +171,8 @@ class SmallBly(BotAI):
 
             if self.strategy != 1 and self.strategy != 2:
                 self.strategy = 1
+
+            await self.tag_strategy()
 
             with open("data/chosen_strategy.txt", mode='w') as f:
                 f.write(str(self.strategy))

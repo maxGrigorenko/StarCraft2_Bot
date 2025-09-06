@@ -493,6 +493,9 @@ async def macro_element(self):
             larva = self.units(UnitTypeId.LARVA).random
             if self.can_afford(UnitTypeId.MUTALISK):
                 larva.train(UnitTypeId.MUTALISK)
+                if not self.muta_tagged:
+                    await self.chat_send(message="Tag: muta", team_only=True)
+                    self.muta_tagged = True
                 return
 
 
