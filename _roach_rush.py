@@ -244,6 +244,7 @@ async def roach_rush_step(self, iteration):
                     closest_enemy_to_base = self.closest_enemy_unit(self.townhalls.first)
                     enemy_near_home_and_unit = (get_distance(closest_enemy_to_base.position, self.townhalls.first.position) < 12 and
                              get_distance(closest_enemy_to_base.position, unit.position) < 13)
+                    enemy_is_close = get_distance(unit.position, closest_enemy_to_unit.position) < 5
 
                     for enemy_unit in self.enemy_units:
                         if (enemy_unit not in self.known_enemy_u) and (
@@ -252,30 +253,34 @@ async def roach_rush_step(self, iteration):
                                 not enemy_unit.is_flying):
                             self.known_enemy_u.append(enemy_unit)
 
+                    need_to_run_deep = ((self.time < 210) and
+                                        (self.closest_unit_dist(unit=unit, units=dangerous_structures) < 9) and
+                                        (get_distance(unit.position, self.enemy_start_locations[0].position) > 13))
+
                     if self.units(UnitTypeId.ROACHBURROWED).amount >= 1 and \
                             get_distance(self.closest_unit(self.units(UnitTypeId.ROACHBURROWED), unit).position, unit.position) < 1.25 and \
                             self.units(UnitTypeId.ROACH).amount < 15 and self.units(UnitTypeId.QUEEN).amount < 3:
                         unit.move(self.townhalls.first)
 
                     elif (len(self.known_enemy_u) > 0 and
-                          ((get_distance(unit.position, closest_enemy_to_unit.position) < 5) or enemy_near_home_and_unit) and
-                            (not closest_enemy_to_base.is_flying) and (self.time > 150 or self.closest_unit_dist(unit=unit, units=dangerous_structures) > 10)):
+                          (enemy_is_close or enemy_near_home_and_unit) and
+                          (not closest_enemy_to_base.is_flying) and
+                          (self.time > 150 or self.closest_unit_dist(unit=unit, units=dangerous_structures) > 10) and
+                          (not need_to_run_deep)):
                         unit.attack(closest_enemy_to_base.position)
 
                     elif get_distance(unit.position, self.enemy_start_locations[0]) < 7:
                         unit.attack(self.enemy_start_locations[0])
 
-                    elif (unit.health_max - unit.health > 0) and \
-                            not (self.time < 150 and self.closest_unit_dist(unit=unit, units=dangerous_structures) < 10):
-                        # unit.attack(self.enemy_start_locations[0])
+                    elif ((unit.health_max - unit.health > 0) and
+                            not (self.time < 150 and self.closest_unit_dist(unit=unit, units=dangerous_structures) < 10) and
+                            not need_to_run_deep):
                         self.accurate_attack(unit, attack_on_way=True)
 
                     else:
-                        # unit.move(self.enemy_start_locations[0])
                         self.accurate_attack(unit, attack_on_way=False)
 
                 else:
-                    # unit.move(self.enemy_start_locations[0])
                     self.accurate_attack(unit, attack_on_way=False)
 
         self.manage_queen_attack()
