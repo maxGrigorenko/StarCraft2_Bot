@@ -254,12 +254,13 @@ async def roach_rush_step(self, iteration):
                             self.known_enemy_u.append(enemy_unit)
 
                     need_to_run_deep = ((self.time < 210) and
-                                        (self.closest_unit_dist(unit=unit, units=dangerous_structures) < 9) and
+                                        (self.closest_unit_dist(unit=unit, units=dangerous_structures) < 13) and
                                         (get_distance(unit.position, self.enemy_start_locations[0].position) > 13))
 
                     if self.units(UnitTypeId.ROACHBURROWED).amount >= 1 and \
                             get_distance(self.closest_unit(self.units(UnitTypeId.ROACHBURROWED), unit).position, unit.position) < 1.25 and \
-                            self.units(UnitTypeId.ROACH).amount < 15 and self.units(UnitTypeId.QUEEN).amount < 3:
+                            self.units(UnitTypeId.ROACH).amount < 15 and self.units(UnitTypeId.QUEEN).amount < 3 and \
+                            not need_to_run_deep:
                         unit.move(self.townhalls.first)
 
                     elif (len(self.known_enemy_u) > 0 and

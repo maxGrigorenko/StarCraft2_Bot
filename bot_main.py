@@ -155,10 +155,10 @@ class SmallBly(BotAI):
 
     async def tag_strategy(self):
         if self.strategy == 1:
-            await self.chat_send(message="Tag: zerglings", team_only=True)
+            await self.chat_send(message="Tag:zerglings", team_only=True)
 
         elif self.strategy == 2:
-            await self.chat_send(message="Tag: roaches", team_only=True)
+            await self.chat_send(message="Tag:roaches", team_only=True)
 
 
     async def on_step(self, iteration):  # 168 iterations per minute ~ 3 iterations per second
