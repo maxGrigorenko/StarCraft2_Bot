@@ -1,4 +1,4 @@
-from bot_main import choose_strategy
+from src.bot_main import choose_strategy
 
 game_results = [0, 0, 0, 0, 0, 0]
 print(choose_strategy(game_results))

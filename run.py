@@ -3,7 +3,7 @@ from sc2.main import run_game
 from sc2 import maps
 from sc2.data import Race, Difficulty
 from sc2.player import Bot, Computer
-from bot_main import SmallBly
+from src.bot_main import SmallBly
 from __init__ import run_ladder_game
 
 
@@ -90,4 +90,4 @@ if __name__ == "__main__":
     else:
         # Local game
         print("Starting local game...")
-        run_game(maps.get("AbyssalReefLE"), [bot, Computer(Race.Terran, Difficulty.VeryHard)], realtime=False)
+        run_game(maps.get("AbyssalReefAIE"), [bot, Computer(Race.Terran, Difficulty.VeryHard)], realtime=False)
