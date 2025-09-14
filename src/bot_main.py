@@ -183,7 +183,7 @@ class SmallBly(BotAI):
 
             await self.tag_strategy()
 
-            with open("../data/chosen_strategy.txt", mode='w') as f:
+            with open("data/chosen_strategy.txt", mode='w') as f:
                 f.write(str(self.strategy.value))
 
         if len(self.two_enemy_ramps) == 0:
