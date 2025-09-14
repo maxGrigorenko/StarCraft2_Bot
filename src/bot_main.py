@@ -1,8 +1,10 @@
 # import random
-# import enum
 # import time
+import enum
 
 import math
+
+from src.managers.overlord_manager import OverlordManager
 from src.utils.coordinate_functions import *
 
 import sc2
@@ -18,6 +20,12 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.game_info import GameInfo, Ramp
+from src.utils.universal_functions import sorted_enemy_locations
+
+
+class StrategyID(enum.Enum):
+    ZERGLING_DRONE_RUSH = 1
+    ROACH_RUSH = 2
 
 
 def choose_strategy(game_results: list):
@@ -43,21 +51,21 @@ def choose_strategy(game_results: list):
     score2 = calculate_score(wins2, losses2, draws2)
 
     if score2 > score1:
-        return 2
+        return StrategyID.ROACH_RUSH
     elif score1 > score2:
-        return 1
+        return StrategyID.ZERGLING_DRONE_RUSH
 
     if total1 == 0:
-        return 1
+        return StrategyID.ZERGLING_DRONE_RUSH
     if total2 == 0:
-        return 2
+        return StrategyID.ROACH_RUSH
 
     if losses1 < losses2:
-        return 1
+        return StrategyID.ZERGLING_DRONE_RUSH
     elif losses2 < losses1:
-        return 2
+        return StrategyID.ROACH_RUSH
 
-    return 1 if total1 >= total2 else 2
+    return StrategyID.ZERGLING_DRONE_RUSH if total1 >= total2 else StrategyID.ROACH_RUSH
 
 
 class SmallBly(BotAI):
@@ -69,11 +77,11 @@ class SmallBly(BotAI):
     from src.utils.universal_functions import refresh_unit, enemy_dangerous_structures, \
         dangerous_structures_exist, select_target, get_locations, base_scout, \
         is_units_health_max, all_flying_enemies, all_known_structures_flying, \
-        closest_enemy_unit, closest_unit, enemy_locations, overlord_management, \
+        closest_enemy_unit, closest_unit, sorted_enemy_locations, \
         map_scout, need_group, group_units, defending, micro_element, queen_management, \
         no_units_in_opponent_main, proxy, mining_iteration, find_final_structures, \
         is_opponents_main_won, manage_queen_attack, find_expand, has_expand_ramp, \
-        accurate_attack, closest_unit_dist
+        accurate_attack, closest_unit_dist, air_danger_units
 
     from src.strategies.zergling_drone_rush import prominent_structures, zergling_drone_rush_step, \
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
@@ -83,6 +91,7 @@ class SmallBly(BotAI):
 
     def __init__(self):
         super().__init__()
+        self.overlord_manager = OverlordManager()
         self.need_to_attack_main_base = True
         self.in_scout = []
         self.location_counter = 0
@@ -130,7 +139,7 @@ class SmallBly(BotAI):
     def read_and_choose_strategy(self):
         opponent_id = self.opponent_id
         if opponent_id is None:
-            self.strategy = 2
+            self.strategy = StrategyID.ROACH_RUSH
             return
 
         with open("data/statistics.txt") as f:
@@ -154,10 +163,10 @@ class SmallBly(BotAI):
         self.strategy = choose_strategy(game_results)
 
     async def tag_strategy(self):
-        if self.strategy == 1:
+        if self.strategy == StrategyID.ZERGLING_DRONE_RUSH:
             await self.chat_send(message="Tag:zerglings", team_only=True)
 
-        elif self.strategy == 2:
+        elif self.strategy == StrategyID.ROACH_RUSH:
             await self.chat_send(message="Tag:roaches", team_only=True)
 
 
@@ -169,13 +178,13 @@ class SmallBly(BotAI):
             except BaseException:
                 print("Exception while choosing strategy")
 
-            if self.strategy != 1 and self.strategy != 2:
-                self.strategy = 1
+            if self.strategy != StrategyID.ZERGLING_DRONE_RUSH and self.strategy != StrategyID.ROACH_RUSH:
+                self.strategy = StrategyID.ZERGLING_DRONE_RUSH
 
             await self.tag_strategy()
 
-            with open("data/chosen_strategy.txt", mode='w') as f:
-                f.write(str(self.strategy))
+            with open("../data/chosen_strategy.txt", mode='w') as f:
+                f.write(str(self.strategy.value))
 
         if len(self.two_enemy_ramps) == 0:
             sorted_ramps = sorted(self.game_info.map_ramps,
@@ -184,16 +193,23 @@ class SmallBly(BotAI):
             self.expand_rump_exist = self.has_expand_ramp()
             print(self.expand_rump_exist)
 
-        if self.strategy == 1:
+            self.overlord_manager.load_data(own_start_location=self.start_location,
+                                            enemy_start_location=self.enemy_start_locations[0],
+                                            enemy_locations=self.sorted_enemy_locations(),
+                                            enemy_ramp=self.two_enemy_ramps[0],
+                                            enemy_expand=self.expand,
+                                            enemy_race=self.enemy_race)
+
+        if self.strategy == StrategyID.ZERGLING_DRONE_RUSH:
             await self.zergling_drone_rush_step(iteration=iteration)
 
-        elif self.strategy == 2:
+        elif self.strategy == StrategyID.ROACH_RUSH:
             await self.roach_rush_step(iteration=iteration)
 
 
 def main():
     run_game(sc2.maps.get("TorchesAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        Human(Race.Zerg),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
         Bot(Race.Zerg, SmallBly()),
         # Computer(Race.Protoss, Difficulty.CheatInsane),

@@ -98,43 +98,19 @@ def closest_unit(self, units, obj):
     return result
 
 
-def enemy_locations(self):
-    itog_locations = []
-    dictionary = {}
+def sorted_enemy_locations(self):
     locations = self.get_locations()
     enemy_main = self.enemy_start_locations[0]
-    for location in locations:
-        dist = get_distance(location, enemy_main)
-        dictionary.update({location: dist})
-
-    distances = sorted(list(dictionary.values()))
-
-    for i in distances:
-        for j in dictionary.keys():
-            if dictionary[j] == i and j not in itog_locations:
-                itog_locations.append(j)
-
-    return itog_locations
+    sorted_locations = sorted(locations, key=lambda x: get_distance(x, enemy_main))
+    return sorted_locations
 
 
-async def overlord_management(self):
+def air_danger_units(self):
     air_attack_enemy_units = [unit for unit in self.enemy_units if unit.can_attack_air]
     for struct in self.enemy_structures:
         if struct.can_attack_air:
             air_attack_enemy_units.append(struct)
-
-    for overlord in self.units(UnitTypeId.OVERLORD):
-        if len(self.busy_overlords) < len(self.get_locations()) - 2:
-            if overlord not in self.busy_overlords:
-                if len(self.busy_overlords) == 0:
-                    overlord.move(self.two_enemy_ramps[0].bottom_center)
-                else:
-                    overlord.move(self.enemy_locations()[len(self.busy_overlords) + 1])
-                self.busy_overlords.append(overlord)
-        if len(air_attack_enemy_units) > 0:
-            closest_danger_unit = self.closest_unit(units=air_attack_enemy_units, obj=overlord)
-            if get_distance(closest_danger_unit.position, overlord.position) < 10:
-                overlord.move(go_from_point(unit_position=overlord.position, dangerous_position=closest_danger_unit.position, dist=1))
+    return air_attack_enemy_units
 
 
 async def map_scout(self, army):
@@ -516,7 +492,7 @@ def manage_queen_attack(self):
 
 def find_expand(self):
     main_rump_position = self.two_enemy_ramps[0].bottom_center
-    locations = self.enemy_locations()[1:]
+    locations = self.sorted_enemy_locations()[1:]
     expand = locations[0]
     for location in locations:
         if get_distance(main_rump_position, location) < get_distance(main_rump_position, expand):

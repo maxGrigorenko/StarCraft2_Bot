@@ -59,7 +59,8 @@ def burrow_micro(self):
 
 async def roach_rush_step(self, iteration):
     await self.mining_iteration()
-    await self.overlord_management()
+    await self.overlord_manager.manage(overlords=self.units(UnitTypeId.OVERLORD),
+                                       enemies=self.air_danger_units())
     await self.queen_management()
     await self.micro_element()
     self.burrow_micro()

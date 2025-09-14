@@ -43,7 +43,7 @@ async def zvz_spine_crawler(self):
     if self.canceled_crawl:
         breaker = self.refresh_unit(self.wall_breakers[0])
         if breaker is not None:
-            if get_distance(breaker.position, self.enemy_locations()[0]) < 40:
+            if get_distance(breaker.position, self.sorted_enemy_locations()[0]) < 40:
                 breaker.gather(self.mineral_field[10])
             else:
                 breaker(AbilityId.STOP)
@@ -168,7 +168,7 @@ async def wall_breaker_do_block(self, breakers_quantity=1):
         if breaker in self.wall_breakers and not breaker.is_carrying_resource and breaker.health > 5:
 
             if not self.have_moved_wall_breaker:
-                breaker.move(self.enemy_locations()[0])
+                breaker.move(self.sorted_enemy_locations()[0])
                 self.selected_wall_breaker = breaker
                 self.have_moved_wall_breaker = True
 
@@ -176,7 +176,7 @@ async def wall_breaker_do_block(self, breakers_quantity=1):
                 for drone in self.units(UnitTypeId.DRONE):
                     if drone == self.selected_wall_breaker:
                         if 40 < get_distance(drone.position, self.start_location) < 50:
-                            breaker.move(self.enemy_locations()[0])
+                            breaker.move(self.sorted_enemy_locations()[0])
                             self.selected_wall_breaker = breaker
 
             if self.prominent_structures() >= 2:
@@ -207,12 +207,13 @@ async def wall_breaker_do_block(self, breakers_quantity=1):
         else:
             if len(self.all_enemy_units) > 0:
                 if breaker.health <= 10 and get_distance(breaker.position, self.closest_enemy_unit(breaker).position) < 3:
-                    breaker.move(self.enemy_locations()[1])
+                    breaker.move(self.sorted_enemy_locations()[1])
 
 
 async def zergling_drone_rush_step(self, iteration):
     await self.mining_iteration()
-    await self.overlord_management()
+    await self.overlord_manager.manage(overlords=self.units(UnitTypeId.OVERLORD),
+                                       enemies=self.air_danger_units())
     await self.queen_management()
     await self.micro_element()
 
