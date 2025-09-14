@@ -1,5 +1,12 @@
 import sc2.position
 
+def sign(x):
+    if x > 0:
+        return 1
+    elif x == 0:
+        return 0
+    else:
+        return -1
 
 def find_mining_positions(hatchery, mineral_field):
     k, b = create_straight(hatchery.position, mineral_field.position)
@@ -49,7 +56,7 @@ def create_straight(point1, point2):
     return k, b
 
 
-def go_from_point(unit_position, dangerous_position, dist):
+def go_from_point(unit_position, dangerous_position, dist):  # not accurate
 
     k, b = create_straight(unit_position, dangerous_position)
 
@@ -60,11 +67,16 @@ def go_from_point(unit_position, dangerous_position, dist):
             y = unit_position[1] - dist
         return sc2.position.Point2([unit_position[0], y])
 
+    delta_x = sign(dist) * (dist ** 2 / (k ** 2 + 1)) ** 0.5
+
     if unit_position[0] > dangerous_position[0]:
-        x = unit_position[0] + dist
+        x = unit_position[0] + delta_x
     else:
-        x = unit_position[0] - dist
+        x = unit_position[0] - delta_x
 
     y = k * x + b
     return sc2.position.Point2([x, y])
+
+def go_towards_point(unit_position, target_position, dist):
+    return go_from_point(unit_position, target_position, -dist)
 
