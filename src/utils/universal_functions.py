@@ -233,11 +233,12 @@ async def defending(self):
 
             if len(self.attack_drones) < defenders_amount:
                 for unit in self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING):
-                    self.attack_drones.append(unit)
-                    if unit in self.drones_on_gas:
-                        self.drones_on_gas.remove(unit)
-                    if len(self.attack_drones) >= defenders_amount:
-                        break
+                    if unit.health > 5:
+                        self.attack_drones.append(unit)
+                        if unit in self.drones_on_gas:
+                            self.drones_on_gas.remove(unit)
+                        if len(self.attack_drones) >= defenders_amount:
+                            break
 
             for unit in self.attack_drones:
                 if unit not in self.in_micro:
@@ -276,7 +277,7 @@ async def micro_element(self):
             # print("Moving unit out", get_distance(unit.position, fighter.position))
             self.go_back_points.append(unit)
 
-        if unit in self.go_back_points:
+        if unit in self.go_back_points and unit.health > 5:
             fighter_pos = fighter.position
             if unit.weapon_ready:# get_distance(unit.position, fighter_pos) > back_distance - 0.05:
                 self.go_back_points.remove(unit)
