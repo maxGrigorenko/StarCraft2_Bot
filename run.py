@@ -2,7 +2,7 @@ import sys
 from sc2.main import run_game
 from sc2 import maps
 from sc2.data import Race, Difficulty
-from sc2.player import Bot, Computer
+from sc2.player import Bot, Computer, Human
 from src.bot_main import SmallBly
 from __init__ import run_ladder_game
 
@@ -90,4 +90,14 @@ if __name__ == "__main__":
     else:
         # Local game
         print("Starting local game...")
-        run_game(maps.get("AbyssalReefAIE"), [bot, Computer(Race.Terran, Difficulty.VeryHard)], realtime=False)
+        # run_game(maps.get("AbyssalReefAIE"), [bot, Computer(Race.Terran, Difficulty.VeryHard)], realtime=False)
+        run_game(maps.get("2000AtmospheresAIE"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
+            Human(Race.Terran),  # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+            # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
+            Bot(Race.Zerg, SmallBly()),
+            # Computer(Race.Protoss, Difficulty.CheatInsane),
+        ], realtime=False,
+                 disable_fog=False,
+                 random_seed=0,
+                 # save_replay_as="smallBly_vs_smallBly_21-08-2025.SC2Replay",
+                 )

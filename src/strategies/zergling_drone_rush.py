@@ -287,12 +287,12 @@ async def zergling_drone_rush_step(self, iteration):
 
     elif self.stop_drone and (
             self.structures(UnitTypeId.SPAWNINGPOOL).exists or self.already_pending(UnitTypeId.SPAWNINGPOOL)) and (
-            self.units(UnitTypeId.DRONE).amount != 14 or self.need_air_units):
+            self.units(UnitTypeId.DRONE).amount != 14 or self.need_air_units) and not self.defence:
         self.stop_drone = False
 
     # BUILDING DRONES
 
-    if len(self.mining_drones) < first_base.ideal_harvesters and (self.need_air_units or not self.stop_drone):
+    if len(self.mining_drones) < first_base.ideal_harvesters and (self.need_air_units or not self.stop_drone) and not self.defence:
         if self.can_afford(UnitTypeId.DRONE) and larvae.exists:
             self.train(UnitTypeId.DRONE)
 

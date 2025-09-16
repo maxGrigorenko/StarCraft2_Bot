@@ -216,7 +216,7 @@ async def defending(self):
     close_enemies = []
     if len(self.enemy_units) > 0 and not self.is_units_health_max():
         for enemy in self.enemy_units:
-            if get_distance(enemy.position, self.start_location) < 12:
+            if get_distance(enemy.position, self.start_location) < 15:
                 close_enemies.append(enemy)
 
         enemies_in_attack_amount = len(close_enemies)
@@ -240,7 +240,8 @@ async def defending(self):
                         break
 
             for unit in self.attack_drones:
-                unit.attack(self.closest_unit(close_enemies, unit).position)
+                if unit not in self.in_micro:
+                    unit.attack(self.closest_unit(close_enemies, unit).position)
 
             self.defence = True
 
@@ -254,10 +255,11 @@ async def defending(self):
 
 
 async def micro_element(self):
-    if self.is_units_health_max() or not self.enemy_units.exists:
+    if not self.enemy_units.exists:
         return
 
     drones = []
+    mineral_field = min(self.mineral_field, key=lambda x: get_distance(x.position, self.start_location))
 
     for drone in self.units(UnitTypeId.DRONE):
         if drone not in self.home_dronny and drone not in self.wall_breakers:
@@ -267,19 +269,18 @@ async def micro_element(self):
 
     for unit in drones:
         fighter = self.closest_enemy_unit(unit)
-        if int(unit.health) in [1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 30, 31, 32, 33, 34]:
-            if get_distance(unit.position, fighter.position) <= back_distance:
-                self.in_micro.append(unit)
-                unit.gather(self.mineral_field[10])  # mineral field must be not at the enemy`s base
-                # print("Moving unit out", get_distance(unit.position, fighter.position))
-                self.go_back_points.append(unit)
+        if not unit.weapon_ready: # int(unit.health) in [1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 30, 31, 32, 33, 34]:
+            # if get_distance(unit.position, fighter.position) <= back_distance:
+            self.in_micro.append(unit)
+            unit.gather(mineral_field)  # mineral field must be not at the enemy's base
+            # print("Moving unit out", get_distance(unit.position, fighter.position))
+            self.go_back_points.append(unit)
 
         if unit in self.go_back_points:
             fighter_pos = fighter.position
-            if get_distance(unit.position, fighter_pos) > back_distance - 0.05:
+            if unit.weapon_ready:# get_distance(unit.position, fighter_pos) > back_distance - 0.05:
                 self.go_back_points.remove(unit)
                 self.in_micro.remove(unit)
-                # print("Unit back", get_distance(unit.position, fighter_pos))
                 unit.attack(self.enemy_start_locations[0])
 
 
