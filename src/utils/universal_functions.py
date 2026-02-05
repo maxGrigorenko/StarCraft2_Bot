@@ -152,6 +152,10 @@ def need_group(self, middle_unit, max_distance, max_middle_group_dist):
 
     amount = sum(distances)
     length = len(distances)
+
+    if length == 0:
+        return False
+
     middle_distance = amount / length
 
     if middle_distance < 70:
@@ -202,6 +206,9 @@ async def group_units(self, middle_unit, max_distance):
         x += pos.position[0]
         y += pos.position[1]
     lp = len(positions)
+
+    if lp == 0:
+        return
 
     medium_position = [x / lp, y / lp]
     medium_position = sc2.position.Point2(medium_position)
