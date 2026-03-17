@@ -26,17 +26,25 @@ from src.utils.universal_functions import sorted_enemy_locations
 class StrategyID(enum.Enum):
     ZERGLING_DRONE_RUSH = 1
     ROACH_RUSH = 2
+    RAVAGER_RUSH = 3
 
 
 def choose_strategy(game_results: list):
-    wins1, losses1, draws1, wins2, losses2, draws2 = game_results
+    wins1, losses1, draws1, wins2, losses2, draws2 = game_results[:6]
+
+    # Extract ravager stats if present
+    if len(game_results) >= 9:
+        wins3, losses3, draws3 = game_results[6], game_results[7], game_results[8]
+    else:
+        wins3, losses3, draws3 = 0, 0, 0
 
     total1 = wins1 + losses1 + draws1
     total2 = wins2 + losses2 + draws2
-    total_games = total1 + total2
+    total3 = wins3 + losses3 + draws3
+    total_games = total1 + total2 + total3
 
     if total_games == 0:
-        return 2
+        return StrategyID.ROACH_RUSH
 
     def calculate_score(wins, losses, draws, exploration=2.0):
         n = wins + losses + draws
@@ -49,23 +57,18 @@ def choose_strategy(game_results: list):
 
     score1 = calculate_score(wins1, losses1, draws1)
     score2 = calculate_score(wins2, losses2, draws2)
+    score3 = calculate_score(wins3, losses3, draws3)
 
-    if score2 > score1:
+    best_score = max(score1, score2, score3)
+
+    if best_score == score3:
+        return StrategyID.RAVAGER_RUSH
+    elif best_score == score2:
         return StrategyID.ROACH_RUSH
-    elif score1 > score2:
+    elif best_score == score1:
         return StrategyID.ZERGLING_DRONE_RUSH
 
-    if total1 == 0:
-        return StrategyID.ZERGLING_DRONE_RUSH
-    if total2 == 0:
-        return StrategyID.ROACH_RUSH
-
-    if losses1 < losses2:
-        return StrategyID.ZERGLING_DRONE_RUSH
-    elif losses2 < losses1:
-        return StrategyID.ROACH_RUSH
-
-    return StrategyID.ZERGLING_DRONE_RUSH if total1 >= total2 else StrategyID.ROACH_RUSH
+    return StrategyID.ROACH_RUSH
 
 
 class SmallBly(BotAI):
@@ -88,6 +91,9 @@ class SmallBly(BotAI):
         wall_breaker_do_block, macro_element
 
     from src.strategies.roach_rush import roach_rush_step, burrow_micro
+
+    from src.strategies.ravager_rush import ravager_rush_step, morph_ravagers, \
+        use_corrosive_bile
 
     def __init__(self):
         super().__init__()
@@ -146,7 +152,7 @@ class SmallBly(BotAI):
             statistics_text = f.read()
 
         massive = statistics_text.strip().split('\n')
-        string = f"{opponent_id}: 0 0 0 0 0 0"
+        string = f"{opponent_id}: 0 0 0 0 0 0 0 0 0"
         if opponent_id in statistics_text:
             for i in range(len(massive)):
                 string = massive[i]
@@ -156,7 +162,7 @@ class SmallBly(BotAI):
         split_str = string.split(':')
         game_results = list(map(int, split_str[1].strip().split(' ')))
 
-        while len(game_results) < 6:
+        while len(game_results) < 9:
             game_results.append(0)
 
         print(f"{game_results=}")
@@ -169,6 +175,9 @@ class SmallBly(BotAI):
         elif self.strategy == StrategyID.ROACH_RUSH:
             await self.chat_send(message="Tag:roaches", team_only=True)
 
+        elif self.strategy == StrategyID.RAVAGER_RUSH:
+            await self.chat_send(message="Tag:ravagers", team_only=True)
+
 
     async def on_step(self, iteration):  # 168 iterations per minute ~ 3 iterations per second
         if not self.strategy:
@@ -178,7 +187,7 @@ class SmallBly(BotAI):
             except BaseException:
                 print("Exception while choosing strategy")
 
-            if self.strategy != StrategyID.ZERGLING_DRONE_RUSH and self.strategy != StrategyID.ROACH_RUSH:
+            if self.strategy not in (StrategyID.ZERGLING_DRONE_RUSH, StrategyID.ROACH_RUSH, StrategyID.RAVAGER_RUSH):
                 self.strategy = StrategyID.ZERGLING_DRONE_RUSH
 
             await self.tag_strategy()
@@ -206,6 +215,9 @@ class SmallBly(BotAI):
         elif self.strategy == StrategyID.ROACH_RUSH:
             await self.roach_rush_step(iteration=iteration)
 
+        elif self.strategy == StrategyID.RAVAGER_RUSH:
+            await self.ravager_rush_step(iteration=iteration)
+
 
 def main():
     run_game(sc2.maps.get("TorchesAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
@@ -222,4 +234,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
