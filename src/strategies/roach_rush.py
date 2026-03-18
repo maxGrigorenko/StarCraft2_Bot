@@ -6,6 +6,8 @@ from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
 from src.utils.universal_functions import *
 from src.utils.speed_mining import *
+from src.managers.ravager_manager import find_closest_enemy, calculate_retreat_position
+from src.utils.coordinate_functions import get_distance, go_from_point
 
 
 def burrow_micro(self):
@@ -57,12 +59,41 @@ def burrow_micro(self):
     '''
 
 
+async def roach_micro_management(self):
+    roaches = self.units(UnitTypeId.ROACH)
+    ground_enemies = [u for u in self.enemy_units if not u.is_flying and not u.is_hallucination]
+    dangerous_structures = (self.enemy_structures(UnitTypeId.PHOTONCANNON) |
+                            self.enemy_structures(UnitTypeId.BUNKER) |
+                            self.enemy_structures(UnitTypeId.SPINECRAWLER))
+    
+    handled_tags = set()
+    
+    for roach in roaches:
+        closest_enemy = find_closest_enemy(roach, ground_enemies)
+        if closest_enemy is None:
+            continue
+        
+        dist_to_enemy = get_distance(roach.position, closest_enemy.position)
+        if dist_to_enemy < 7:
+            if roach.weapon_ready:
+                roach.attack(closest_enemy.position)
+            else:
+                retreat_pos = calculate_retreat_position(
+                    roach.position, closest_enemy.position, retreat_dist=1.5
+                )
+                roach.move(retreat_pos)
+            handled_tags.add(roach.tag)
+            continue
+
+    return handled_tags
+
+
 async def roach_rush_step(self, iteration):
     await self.mining_iteration()
     await self.overlord_manager.manage(overlords=self.units(UnitTypeId.OVERLORD),
                                        enemies=self.air_danger_units())
     await self.queen_management()
-    await self.micro_element()
+    self.handled_by_micro = await self.roach_micro_management()
     self.burrow_micro()
 
     if self.units(UnitTypeId.ROACH).amount >= 16:
@@ -235,6 +266,8 @@ async def roach_rush_step(self, iteration):
             not self.no_units_in_opponent_main() and self.time > 100)) and self.need_to_attack_main_base:
 
         for unit in forces:
+            if hasattr(self, 'handled_by_micro') and self.handled_by_micro is not None and unit.tag in self.handled_by_micro:
+                continue
             if unit not in self.in_burrow_process:
                 for unit_in_known in self.known_enemy_u:
                     if unit_in_known not in self.enemy_units:
