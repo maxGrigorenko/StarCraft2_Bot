@@ -101,7 +101,7 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
             safe = True
             for unit in own_units:
                 dist_to_unit = get_distance(target_pos, unit.position)
-                if dist_to_unit <= unit.radius + 0.5:
+                if dist_to_unit <= unit.radius + 2.0:
                     safe = False
                     break
             if safe:
@@ -121,7 +121,7 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
                 if unit.tag == ravager.tag:
                     continue
                 dist_to_unit = get_distance(target_pos, unit.position)
-                if dist_to_unit <= unit.radius + 0.5:
+                if dist_to_unit <= unit.radius + 3.5:
                     safe = False
                     break
             if safe:
@@ -223,7 +223,10 @@ class RavagerManager:
                 bile_target = find_bile_target(ravager, priority_targets, other_bile_targets + ground_enemies, own_units)
                 if bile_target is not None:
                     if can_cast_bile:
-                        bile_position = go_towards_point(unit_position=bile_target.position, target_position=ravager.position, dist=bile_target.radius+0.2)
+                        if get_distance(ravager.position, bile_target.position) < 6:
+                            bile_position = bile_target.position
+                        else:
+                            bile_position = go_towards_point(unit_position=bile_target.position, target_position=ravager.position, dist=bile_target.radius+0.2)
                         safe_cast = True
                         for unit in own_units:
                             if unit.tag == ravager.tag:
