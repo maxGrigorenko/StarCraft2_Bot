@@ -12,10 +12,11 @@ def refresh_statistics(result, opponent_id):
     with open("data/statistics.txt") as f:
 
         """
-        id_1: 1 2 0 1 2 0
-        id_2: 3 0 0 3 0 0
+        id_1: 1 2 0 1 2 0 1 2 0
+        id_2: 3 0 0 3 0 0 3 0 0
         ...
-        id_n: wins1 loses1 ties1 wins2 loses2 ties2
+        id_n: wins1 loses1 ties1 wins2 loses2 ties2 wins3 loses3 ties3
+        где 1 - ZERGLING_DRONE_RUSH, 2 - ROACH_RUSH, 3 - RAVAGER_RUSH
         """
 
         statistics_text = f.read()
@@ -25,7 +26,7 @@ def refresh_statistics(result, opponent_id):
 
     massive = statistics_text.strip().split('\n')
     index = None
-    string = f"{opponent_id}: 0 0 0 0 0 0"
+    string = f"{opponent_id}: 0 0 0 0 0 0 0 0 0"
     if opponent_id in statistics_text:
         for i in range(len(massive)):
             string = massive[i]
@@ -36,13 +37,15 @@ def refresh_statistics(result, opponent_id):
     split_str = string.split(':')
     split_results = list(map(int, split_str[1].strip().split(' ')))
 
-    while len(split_results) < 6:
+    while len(split_results) < 9:
         split_results.append(0)
         
     if strategy == 1:
         increment = 0
     elif strategy == 2:
         increment = 3
+    elif strategy == 3:
+        increment = 6
     else:
         print("Unable to read strategy")
         return
