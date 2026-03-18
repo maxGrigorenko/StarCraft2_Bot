@@ -408,7 +408,7 @@ async def find_final_structures(self, forces, army):
 
 async def is_opponents_main_won(self):
     forces = self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING) | self.units(UnitTypeId.ROACH) | self.units(
-        UnitTypeId.MUTALISK)
+        UnitTypeId.RAVAGER) | self.units(UnitTypeId.MUTALISK)
     for army_unit in forces:
         dist = get_distance(army_unit.position, self.enemy_start_locations[0])
 
