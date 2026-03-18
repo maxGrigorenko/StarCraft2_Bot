@@ -91,7 +91,7 @@ class SmallBly(BotAI):
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
         wall_breaker_do_block, macro_element
 
-    from src.strategies.roach_rush import roach_rush_step, burrow_micro
+    from src.strategies.roach_rush import roach_rush_step, burrow_micro, roach_micro_management
 
     from src.strategies.ravager_rush import ravager_rush_step, morph_ravagers, \
         use_corrosive_bile
@@ -180,7 +180,6 @@ class SmallBly(BotAI):
         elif self.strategy == StrategyID.RAVAGER_RUSH:
             await self.chat_send(message="Tag:ravagers", team_only=True)
 
-
     async def on_step(self, iteration):  # 168 iterations per minute ~ 3 iterations per second
         if not self.strategy:
             try:
@@ -223,10 +222,10 @@ class SmallBly(BotAI):
 
 def main():
     run_game(sc2.maps.get("TorchesAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        # Human(Race.Protoss),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
         Bot(Race.Zerg, SmallBly()),
-        Computer(Race.Protoss, Difficulty.VeryHard),
+        # Computer(Race.Protoss, Difficulty.VeryHard),
     ], realtime=False,
              disable_fog=False,
              random_seed=0,

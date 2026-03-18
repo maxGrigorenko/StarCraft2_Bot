@@ -58,21 +58,20 @@ class OverlordManager:
 
         self.tags_positions = []
         if self.enemy_race != Race.Zerg:
-            point_neat_ramp = go_from_point(dangerous_position=self.enemy_ramp.top_center,
+            point_near_ramp = go_from_point(dangerous_position=self.enemy_ramp.top_center,
                                             unit_position=self.enemy_ramp.bottom_center,
-                                            dist=3)
-            first_position = go_towards_point(unit_position=point_neat_ramp,
+                                            dist=2)
+            first_position = go_towards_point(unit_position=point_near_ramp,
                                               target_position=self.own_start_location,
-                                              dist=3)
+                                              dist=2)
             self.tags_positions.append(OverlordPosition(position=first_position, overlord_tag=None))
 
         for location in self.enemy_locations[1:]:
             if get_distance(location, self.own_start_location) > 5:
                 position = go_towards_point(unit_position=location,
                                             target_position=self.own_start_location,
-                                            dist=10)
+                                            dist=8)
                 self.tags_positions.append(OverlordPosition(position=position, overlord_tag=None))
-
 
     def assign_positions(self, overlords):
         free_overlord_tags = [overlord_tag for overlord_tag in self.overlord_tags if overlord_tag not in self.busy_overlords]
@@ -122,7 +121,7 @@ class OverlordManager:
             overlord = array[0]
             if len(self.enemies) > 0:
                 closest_enemy = min(self.enemies, key=lambda x: get_distance(x.position, overlord.position))
-                if get_distance(overlord.position, closest_enemy.position) < 12:
+                if get_distance(overlord.position, closest_enemy.position) < 9.5:
                     overlord.move(go_from_point(dangerous_position=closest_enemy.position,
                                                 unit_position=overlord.position,
                                                 dist=1))

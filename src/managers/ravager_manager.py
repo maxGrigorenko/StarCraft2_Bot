@@ -64,17 +64,53 @@ def find_closest_enemy(unit, enemies):
     return closest
 
 
-def find_bile_target(ravager, priority_targets, other_targets):
+def find_bile_target(ravager, priority_targets, other_targets, own_units):
     """Find the best target for Corrosive Bile within range.
-    Priority targets (static defense) are preferred over other targets."""
+    Priority targets (static defense) are preferred over other targets.
+    Also ensure that no own unit is within radius + 0.5 of the target position."""
+    all_targets = list(priority_targets) + list(other_targets)
+    best_sieged_tank = None
+    best_sieged_dist = 9999
+    
+    for target in all_targets:
+        # Проверяем, является ли цель осадным танком (UnitTypeId.SIEGETANKSIEGED)
+        # В sc2.ids.unit_typeid есть SIEGETANK и SIEGETANKSIEGED
+        from sc2.ids.unit_typeid import UnitTypeId
+        if hasattr(target, 'type_id'):
+            if target.type_id == UnitTypeId.SIEGETANKSIEGED:
+                d = get_distance(ravager.position, target.position)
+                if d <= BILE_RANGE and d < best_sieged_dist:
+                    # Проверяем безопасность для своих юнитов
+                    target_pos = target.position
+                    safe = True
+                    for unit in own_units:
+                        dist_to_unit = get_distance(target_pos, unit.position)
+                        if dist_to_unit <= unit.radius + 0.5:
+                            safe = False
+                            break
+                    if safe:
+                        best_sieged_dist = d
+                        best_sieged_tank = target
+    
+    if best_sieged_tank is not None:
+        return best_sieged_tank
+
     best_target = None
     best_dist = 9999
 
     for target in priority_targets:
         d = get_distance(ravager.position, target.position)
         if d <= BILE_RANGE and d < best_dist:
-            best_dist = d
-            best_target = target
+            target_pos = target.position
+            safe = True
+            for unit in own_units:
+                dist_to_unit = get_distance(target_pos, unit.position)
+                if dist_to_unit <= unit.radius + 0.5:
+                    safe = False
+                    break
+            if safe:
+                best_dist = d
+                best_target = target
 
     if best_target is not None:
         return best_target
@@ -83,8 +119,18 @@ def find_bile_target(ravager, priority_targets, other_targets):
     for target in other_targets:
         d = get_distance(ravager.position, target.position)
         if d <= BILE_RANGE and d < best_dist:
-            best_dist = d
-            best_target = target
+            target_pos = target.position
+            safe = True
+            for unit in own_units:
+                if unit.tag == ravager.tag:
+                    continue
+                dist_to_unit = get_distance(target_pos, unit.position)
+                if dist_to_unit <= unit.radius + 0.5:
+                    safe = False
+                    break
+            if safe:
+                best_dist = d
+                best_target = target
 
     return best_target
 
@@ -99,7 +145,13 @@ def get_priority_structures(enemy_structures):
 
 
 def get_dangerous_structures(enemy_structures):
-    """Get structures that can attack ground units."""
+    """Get structures that can attack ground units and are active.
+    Excludes:
+        - SporeCrawler (doesn't attack ground)
+        - PhotonCannon without power (is_powered == False)
+        - Empty Bunker (no units inside)
+        - Structures still building (build_progress < 1.0)
+    """
     dangerous_type_ids = {
         UnitTypeId.PHOTONCANNON,
         UnitTypeId.BUNKER,
@@ -107,26 +159,22 @@ def get_dangerous_structures(enemy_structures):
     }
     result = []
     for s in enemy_structures:
-        if s.type_id in dangerous_type_ids:
-            result.append(s)
+        if s.type_id not in dangerous_type_ids:
+            continue
+        if s.type_id == UnitTypeId.PHOTONCANNON and not s.is_powered:
+            continue
+        if s.type_id == UnitTypeId.BUNKER and not s.has_cargo:
+            continue
+        if s.build_progress < 1.0:
+            continue
+        result.append(s)
     return result
 
 
 class RavagerManager:
 
     def __init__(self):
-        self.bile_cooldowns = {}  # tag -> game_loop when bile was last used
-
-    def update_cooldown(self, tag, game_loop):
-        self.bile_cooldowns[tag] = game_loop
-
-    def is_bile_ready(self, tag, game_loop):
-        """Corrosive Bile cooldown is about 7 seconds (~157 game loops at normal speed).
-        We use a slightly shorter check to account for latency."""
-        if tag not in self.bile_cooldowns:
-            return True
-        elapsed = game_loop - self.bile_cooldowns[tag]
-        return elapsed >= 100  # conservative estimate
+        pass
 
     async def manage(self, bot, ravagers, roaches, enemy_units, enemy_structures,
                      enemy_start_location, own_start_location, game_loop):
@@ -149,12 +197,8 @@ class RavagerManager:
         for ravager in ravagers:
             handled = False
             closest_danger = None
-            abilities = await bot.get_available_abilities(ravager)
-            if AbilityId.EFFECT_CORROSIVEBILE in abilities:
-                min_dist = 8.3
-            else:
-                min_dist = 15.0
-
+            can_cast_bile = await bot.can_cast(ravager, AbilityId.EFFECT_CORROSIVEBILE, only_check_energy_and_cooldown=True)
+            
             min_danger_dist = 9999
             for struct in dangerous_structures:
                 d = get_distance(ravager.position, struct.position)
@@ -162,26 +206,41 @@ class RavagerManager:
                     min_danger_dist = d
                     closest_danger = struct
 
+            min_dist = 15.0
+            if closest_danger is not None and can_cast_bile:
+                if closest_danger.is_visible:
+                    min_dist = 8.5
+                else:
+                    min_dist = 3.0
+
             # 1. STRICT DISTANCE CHECK
-            if closest_danger is not None and min_danger_dist < min_dist:
+            if (closest_danger is not None) and (min_danger_dist < min_dist):
                 safe_pos = go_from_point(
                     unit_position=ravager.position,
                     dangerous_position=closest_danger.position,
-                    dist=min_dist-min_danger_dist
+                    dist=15.0-min_danger_dist
                 )
                 ravager.move(safe_pos)
                 handled = True
 
             # 2. BILE CASTING (Can cast if safe, i.e., >= 8.0)
             if not handled and (len(priority_targets) > 0 or len(other_bile_targets) > 0 or len(ground_enemies) > 0):
-                bile_target = find_bile_target(ravager, priority_targets, other_bile_targets + ground_enemies)
-                if bile_target is not None and self.is_bile_ready(ravager.tag, game_loop):
-                    abilities = await bot.get_available_abilities(ravager)
-                    if AbilityId.EFFECT_CORROSIVEBILE in abilities:
+                own_units = list(ravagers) + list(roaches)
+                bile_target = find_bile_target(ravager, priority_targets, other_bile_targets + ground_enemies, own_units)
+                if bile_target is not None:
+                    if can_cast_bile:
                         bile_position = go_towards_point(unit_position=bile_target.position, target_position=ravager.position, dist=bile_target.radius+0.2)
-                        ravager(AbilityId.EFFECT_CORROSIVEBILE, bile_position)
-                        self.update_cooldown(ravager.tag, game_loop)
-                        handled = True
+                        safe_cast = True
+                        for unit in own_units:
+                            if unit.tag == ravager.tag:
+                                continue
+                            dist_to_unit = get_distance(bile_position, unit.position)
+                            if dist_to_unit <= unit.radius + 0.5:
+                                safe_cast = False
+                                break
+                        if safe_cast:
+                            ravager(AbilityId.EFFECT_CORROSIVEBILE, bile_position)
+                            handled = True
 
             # 3. Stutter-step micro against ground enemies
             if not handled:
@@ -199,7 +258,13 @@ class RavagerManager:
                         handled = True
 
             # 4. Wait safely outside danger zone (prevent macro from walking into cannons)
-            if not handled and closest_danger is not None and min_danger_dist < 9.5:
+            critic_distance = 12.0
+            if can_cast_bile:
+                critic_distance = 8.5
+                if (closest_danger is not None) and (not closest_danger.is_visible):
+                    critic_distance = 3.0
+
+            if (not handled) and (closest_danger is not None) and (min_danger_dist < critic_distance):
                 ravager.stop()
                 handled = True
 
@@ -219,7 +284,7 @@ class RavagerManager:
                     closest_danger = struct
 
             # STRICT DISTANCE CHECK FOR ROACHES TOO
-            if closest_danger is not None and min_danger_dist < 8.0:
+            if closest_danger is not None and min_danger_dist < 12.0:
                 safe_pos = go_from_point(
                     unit_position=roach.position,
                     dangerous_position=closest_danger.position,
@@ -243,7 +308,7 @@ class RavagerManager:
                         handled = True
 
             # Wait safely outside danger zone
-            if not handled and closest_danger is not None and min_danger_dist < 8.5:
+            if not handled and closest_danger is not None and min_danger_dist < 15.0:
                 roach.stop()
                 handled = True
 

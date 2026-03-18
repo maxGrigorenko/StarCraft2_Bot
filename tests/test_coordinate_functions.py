@@ -2,6 +2,7 @@ import pytest
 from sc2.position import Point2
 from src.utils.coordinate_functions import go_from_point, go_towards_point, get_distance
 
+
 class TestCoordinateFunctions:
     def test_go_from_point_horizontal(self):
         unit_pos = Point2((3, 1))
@@ -67,6 +68,3 @@ class TestCoordinateFunctions:
         assert result != unit_pos
         distance = get_distance(unit_pos, result)
         assert abs(distance - 1) < 0.001
-
-
-

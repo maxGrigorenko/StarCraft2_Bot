@@ -9,20 +9,27 @@ from src.utils.speed_mining import *
 
 
 def morph_ravagers(self):
-    """Morph all available Roaches into Ravagers."""
+    """Morph all available Roaches into Ravagers, but limit to 15 Ravagers total."""
     roaches = self.units(UnitTypeId.ROACH)
 
     if not self.structures(UnitTypeId.ROACHWARREN).ready.exists:
+        return
+
+    current_ravagers = self.units(UnitTypeId.RAVAGER).amount
+    if current_ravagers >= 15:
         return
 
     available_minerals = self.minerals
     available_gas = self.vespene
 
     for roach in roaches:
+        if current_ravagers >= 15:
+            break
         if available_minerals >= 25 and available_gas >= 75 and roach.is_ready:
             roach(AbilityId.MORPHTORAVAGER_RAVAGER)
             available_minerals -= 25
             available_gas -= 75
+            current_ravagers += 1
 
 
 async def use_corrosive_bile(self):
@@ -81,14 +88,17 @@ async def ravager_rush_step(self, iteration):
     else:
         self.defence = False
 
-    pool_started = self.structures(UnitTypeId.SPAWNINGPOOL).amount + self.already_pending(UnitTypeId.SPAWNINGPOOL) > 0
+    if (not self.stop_drone) and (
+            self.supply_workers >= 14 or
+            (not (self.structures(UnitTypeId.SPAWNINGPOOL).exists or self.already_pending(UnitTypeId.SPAWNINGPOOL)))) \
+            and not self.dangerous_structures_exist():
+        self.stop_drone = True
 
-    if not self.stop_drone:
-        if self.supply_workers >= 19 or (not pool_started and self.supply_workers >= 14) or self.dangerous_structures_exist():
-            self.stop_drone = True
-    else:
-        if pool_started and self.supply_workers < 19 and not self.dangerous_structures_exist():
-            self.stop_drone = False
+    elif self.stop_drone and (
+            self.structures(UnitTypeId.SPAWNINGPOOL).exists or self.already_pending(UnitTypeId.SPAWNINGPOOL)) and (
+            self.structures(UnitTypeId.EXTRACTOR).exists or self.already_pending(UnitTypeId.EXTRACTOR)) and (
+            self.supply_workers < 14 or self.need_air_units):
+        self.stop_drone = False
 
     if iteration == 30:
         await self.chat_send("gl hf!")
@@ -98,16 +108,18 @@ async def ravager_rush_step(self, iteration):
         self.locations = self.get_locations()
 
     # BUILDING DRONES
-    if len(self.mining_drones) < first_base.ideal_harvesters and (self.need_air_units or not self.stop_drone):
-        if self.can_afford(UnitTypeId.DRONE) and larvae.exists:
-            self.train(UnitTypeId.DRONE)
+    # Не строить дронов после постройки рассадника тараканов
+    if self.structures(UnitTypeId.ROACHWARREN).amount + self.already_pending(UnitTypeId.ROACHWARREN) == 0:
+        if len(self.mining_drones) < first_base.ideal_harvesters and (self.need_air_units or not self.stop_drone):
+            if self.can_afford(UnitTypeId.DRONE) and larvae.exists:
+                self.train(UnitTypeId.DRONE)
 
     if not self.dronny or self.dronny is None:
         drones_without_minerals = [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
         if len(drones_without_minerals) >= 1:
             self.dronny = self.closest_unit(drones_without_minerals, self.enemy_start_locations[0])
 
-    # BUILDING SPAWNING POOL (earliest possible)
+    # BUILDING SPAWNING POOL
     if self.structures(UnitTypeId.SPAWNINGPOOL).amount + self.already_pending(UnitTypeId.SPAWNINGPOOL) == 0:
         self.dronny = self.refresh_unit(self.dronny)
         dronny = self.dronny
@@ -132,34 +144,46 @@ async def ravager_rush_step(self, iteration):
             if dronny not in self.building_workers:
                 self.building_workers.append(dronny)
 
-    # BUILDING EXTRACTORS (Parallel)
-    if pool_started and self.structures(UnitTypeId.EXTRACTOR).amount + self.already_pending(UnitTypeId.EXTRACTOR) < 2:
-        free_geysers = self.vespene_geyser.closer_than(10, first_base)
-        taken_geysers = self.structures(UnitTypeId.EXTRACTOR)
-        available_geysers = [g for g in free_geysers
-                             if all(get_distance(g.position, t.position) > 1 for t in taken_geysers)]
-        if len(available_geysers) > 0 and self.can_afford(UnitTypeId.EXTRACTOR):
+    # BUILDING EXTRACTOR (первый газ)
+    if self.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
+            (self.structures(UnitTypeId.EXTRACTOR).amount + self.already_pending(UnitTypeId.EXTRACTOR) == 0):
+        self.dronny = self.refresh_unit(self.dronny)
+        dronny = self.dronny
+        if self.can_afford(UnitTypeId.EXTRACTOR) and dronny is not None:
+            target = self.vespene_geyser.closest_to(
+                dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
+            dronny.build(UnitTypeId.EXTRACTOR, target)
+            if dronny not in self.building_workers:
+                self.building_workers.append(dronny)
+
+    # ВТОРОЙ ГАЗ (отличие от roach_rush)
+    if self.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
+            self.structures(UnitTypeId.EXTRACTOR).ready.exists and \
+            (self.structures(UnitTypeId.EXTRACTOR).amount + self.already_pending(UnitTypeId.EXTRACTOR) == 1):
+        existing_extractor = self.structures(UnitTypeId.EXTRACTOR).first
+        free_geysers = [g for g in self.vespene_geyser.closer_than(15, first_base)
+                        if get_distance(g.position, existing_extractor.position) > 2]
+        if free_geysers and self.can_afford(UnitTypeId.EXTRACTOR):
             drones_without_minerals = [unit for unit in self.units(UnitTypeId.DRONE)
                                        if not unit.is_carrying_resource and unit != self.dronny and unit not in self.building_workers]
-            if len(drones_without_minerals) > 0:
-                worker = min(drones_without_minerals,
-                             key=lambda w: get_distance(w.position, available_geysers[0].position))
-                worker.build(UnitTypeId.EXTRACTOR, available_geysers[0])
+            if drones_without_minerals:
+                worker = drones_without_minerals[0]
+                worker.build(UnitTypeId.EXTRACTOR, free_geysers[0])
                 if worker not in self.building_workers:
                     self.building_workers.append(worker)
 
-    for extractor in self.structures(UnitTypeId.EXTRACTOR).ready:
-        if extractor.assigned_harvesters < extractor.ideal_harvesters and not self.defence:
-            w = self.workers.closer_than(10, extractor)
+    for extractor in self.structures(UnitTypeId.EXTRACTOR):
+        if extractor.assigned_harvesters < extractor.ideal_harvesters and \
+                self.structures(UnitTypeId.EXTRACTOR).ready.exists and not self.defence:
+            w = self.workers.closer_than(6, extractor)
             if w.exists:
-                available_drones = [d for d in w if d not in self.drones_on_gas and d != self.dronny and d not in self.building_workers]
-                if available_drones:
-                    drone = available_drones[0]
+                drone = w.random
+                if drone != self.dronny:
                     drone.gather(extractor)
                     self.drones_on_gas.append(drone)
 
-    # BUILDING ROACH WARREN (no burrow upgrade needed for this strategy)
-    if self.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and \
+    # BUILDING ROACH WARREN
+    if self.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
             (self.structures(UnitTypeId.ROACHWARREN).amount + self.already_pending(UnitTypeId.ROACHWARREN) == 0):
         self.dronny = self.refresh_unit(self.dronny)
         dronny = self.dronny
@@ -177,7 +201,7 @@ async def ravager_rush_step(self, iteration):
                 if dronny not in self.building_workers:
                     self.building_workers.append(dronny)
 
-            elif self.can_afford(UnitTypeId.ROACHWARREN):
+            elif self.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and self.can_afford(UnitTypeId.ROACHWARREN):
                 await self.build(UnitTypeId.ROACHWARREN, build_worker=dronny, near=dronny)
                 if dronny not in self.building_workers:
                     self.building_workers.append(dronny)
@@ -192,48 +216,22 @@ async def ravager_rush_step(self, iteration):
         else:
             await self.macro_element()
 
-    roach_warren_exists_or_pending = (self.structures(UnitTypeId.ROACHWARREN).exists or
-                                      self.already_pending(UnitTypeId.ROACHWARREN) > 0)
-
-    if first_base.is_idle and roach_warren_exists_or_pending:
+    if first_base.is_idle:
         min_minerals = 225 + larvae.amount * 75
-        if self.minerals >= min_minerals and \
+        if self.minerals >= min_minerals and self.already_pending_upgrade(UpgradeId.BURROW) == 1 and \
                 (not self.need_air_units or self.structures(UnitTypeId.LAIR).amount >= 1) and self.supply_left >= 2:
             first_base.train(UnitTypeId.QUEEN)
 
-    # OVERLORD PRODUCTION — proactive supply management for ravager timing
-    pending_roach_supply = self.already_pending(UnitTypeId.ROACH) * 2
-    pending_ravager_supply = self.already_pending(UnitTypeId.RAVAGER) * 1
-    current_army_supply = (self.units(UnitTypeId.ROACH).amount * 2 +
-                           self.units(UnitTypeId.RAVAGER).amount * 3)
-    pending_overlord_supply = self.already_pending(UnitTypeId.OVERLORD) * 8
+    # Оверлорды только после рассадника тараканов
+    if self.structures(UnitTypeId.ROACHWARREN).amount + self.already_pending(UnitTypeId.ROACHWARREN) > 0:
+        if (self.supply_left <= 1 or (self.units(UnitTypeId.DRONE).amount >= 13 and self.supply_left <= 2)) and \
+                not self.already_pending(UnitTypeId.OVERLORD):
+            if self.can_afford(UnitTypeId.OVERLORD) and larvae.exists:
+                larvae.random.train(UnitTypeId.OVERLORD)
 
-    effective_supply_left = self.supply_left + pending_overlord_supply - pending_roach_supply - pending_ravager_supply
-
-
-    need_overlord = False
-    if effective_supply_left <= 2 and not self.already_pending(UnitTypeId.OVERLORD):
-        need_overlord = True
-    elif roach_warren_exists_or_pending and effective_supply_left <= 6 and not self.already_pending(UnitTypeId.OVERLORD):
-        need_overlord = True
-    elif (self.supply_left <= 0 or (self.units(UnitTypeId.DRONE).amount >= 14 and self.supply_left <= 1)) and \
-            not self.already_pending(UnitTypeId.OVERLORD):
-        need_overlord = True
-
-    if roach_warren_exists_or_pending and effective_supply_left <= 12 and \
-            self.already_pending(UnitTypeId.OVERLORD) <= 1 and \
-            self.units(UnitTypeId.OVERLORD).amount + self.already_pending(UnitTypeId.OVERLORD) < 4:
-        need_overlord = True
-
-    if need_overlord:
-        if self.can_afford(UnitTypeId.OVERLORD) and larvae.exists:
-            larvae.random.train(UnitTypeId.OVERLORD)
-
-    # BUILD ROACHES (they will all be morphed into Ravagers)
     if self.structures(UnitTypeId.ROACHWARREN).ready.exists and \
             self.can_afford(UnitTypeId.ROACH) and \
-            larvae.exists and not self.need_air_units and \
-            self.supply_left >= 2:
+            larvae.exists and not self.need_air_units:
         larvae.random.train(UnitTypeId.ROACH)
 
     # ATTACK
