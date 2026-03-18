@@ -73,14 +73,10 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
     best_sieged_dist = 9999
     
     for target in all_targets:
-        # Проверяем, является ли цель осадным танком (UnitTypeId.SIEGETANKSIEGED)
-        # В sc2.ids.unit_typeid есть SIEGETANK и SIEGETANKSIEGED
-        from sc2.ids.unit_typeid import UnitTypeId
         if hasattr(target, 'type_id'):
             if target.type_id == UnitTypeId.SIEGETANKSIEGED:
                 d = get_distance(ravager.position, target.position)
-                if d <= BILE_RANGE and d < best_sieged_dist:
-                    # Проверяем безопасность для своих юнитов
+                if d <= BILE_RANGE + 1.0 and d < best_sieged_dist:
                     target_pos = target.position
                     safe = True
                     for unit in own_units:
@@ -162,8 +158,6 @@ def get_dangerous_structures(enemy_structures):
         if s.type_id not in dangerous_type_ids:
             continue
         if s.type_id == UnitTypeId.PHOTONCANNON and not s.is_powered:
-            continue
-        if s.type_id == UnitTypeId.BUNKER and not s.has_cargo:
             continue
         if s.build_progress < 1.0:
             continue
