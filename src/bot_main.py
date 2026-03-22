@@ -6,6 +6,7 @@ import math
 
 from src.managers.overlord_manager import OverlordManager
 from src.managers.ravager_manager import RavagerManager
+from src.managers.action_registry import ActionRegistry
 from src.utils.coordinate_functions import *
 
 import sc2
@@ -98,8 +99,9 @@ class SmallBly(BotAI):
 
     def __init__(self):
         super().__init__()
-        self.overlord_manager = OverlordManager()
+        self.overlord_manager = OverlordManager(self)
         self.ravager_manager = RavagerManager()
+        self.action_registry = ActionRegistry()
         self.need_to_attack_main_base = True
         self.in_scout = []
         self.location_counter = 0
@@ -219,13 +221,17 @@ class SmallBly(BotAI):
         elif self.strategy == StrategyID.RAVAGER_RUSH:
             await self.ravager_rush_step(iteration=iteration)
 
+        for action_func in self.action_registry.resolve():
+            action_func()
+        self.action_registry.clear()
+
 
 def main():
     run_game(sc2.maps.get("TorchesAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+        # Human(Race.Protoss),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
         Bot(Race.Zerg, SmallBly()),
-        # Computer(Race.Protoss, Difficulty.VeryHard),
+        Computer(Race.Terran, Difficulty.VeryHard),
     ], realtime=False,
              disable_fog=False,
              random_seed=0,

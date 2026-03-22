@@ -15,7 +15,8 @@ class OverlordPosition:
 
 class OverlordManager:
 
-    def __init__(self):
+    def __init__(self, bot=None):
+        self.bot = bot
         self.data_loaded = False
         self.positions_calculated = False
         self.positions_assigned = False
@@ -119,13 +120,21 @@ class OverlordManager:
                 continue
 
             overlord = array[0]
+
             if len(self.enemies) > 0:
                 closest_enemy = min(self.enemies, key=lambda x: get_distance(x.position, overlord.position))
                 if get_distance(overlord.position, closest_enemy.position) < 9.5:
-                    overlord.move(go_from_point(dangerous_position=closest_enemy.position,
+                    retreat_pos = go_from_point(dangerous_position=closest_enemy.position,
                                                 unit_position=overlord.position,
-                                                dist=1))
+                                                dist=1)
+                    self.bot.action_registry.submit_action(tag=overlord.tag,
+                                           action=lambda o=overlord, p=retreat_pos: o.move(p),
+                                           priority=50,
+                                           source="OverlordManager")
                     continue
             if overlord.health > overlord.health_max * 0.6 and get_distance(overlord.position, position) > 0.1:
-                overlord.move(position)
+                self.bot.action_registry.submit_action(tag=overlord.tag,
+                                       action=lambda o=overlord, p=position: o.move(p),
+                                       priority=50,
+                                       source="OverlordManager")
 

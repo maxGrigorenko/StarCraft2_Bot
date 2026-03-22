@@ -214,7 +214,10 @@ class RavagerManager:
                     dangerous_position=closest_danger.position,
                     dist=15.0-min_danger_dist
                 )
-                ravager.move(safe_pos)
+                bot.action_registry.submit_action(tag=ravager.tag,
+                                                  action=lambda r=ravager, p=safe_pos: r.move(p),
+                                                  priority=60,
+                                                  source="RavagerManager")
                 handled = True
 
             # 2. BILE CASTING (Can cast if safe, i.e., >= 8.0)
@@ -236,7 +239,10 @@ class RavagerManager:
                                 safe_cast = False
                                 break
                         if safe_cast:
-                            ravager(AbilityId.EFFECT_CORROSIVEBILE, bile_position)
+                            bot.action_registry.submit_action(tag=ravager.tag,
+                                                              action=lambda r=ravager, ab=AbilityId.EFFECT_CORROSIVEBILE, p=bile_position: r(ab, p),
+                                                              priority=80,
+                                                              source="RavagerManager")
                             handled = True
 
             # 3. Stutter-step micro against ground enemies
@@ -246,12 +252,18 @@ class RavagerManager:
                     dist_to_enemy = get_distance(ravager.position, closest_enemy.position)
                     if dist_to_enemy < 8:
                         if ravager.weapon_ready:
-                            ravager.attack(closest_enemy.position)
+                            bot.action_registry.submit_action(tag=ravager.tag,
+                                                              action=lambda r=ravager, t=closest_enemy.position: r.attack(t),
+                                                              priority=40,
+                                                              source="RavagerManager")
                         else:
                             retreat_pos = calculate_retreat_position(
                                 ravager.position, closest_enemy.position, retreat_dist=1.5
                             )
-                            ravager.move(retreat_pos)
+                            bot.action_registry.submit_action(tag=ravager.tag,
+                                                              action=lambda r=ravager, p=retreat_pos: r.move(p),
+                                                              priority=60,
+                                                              source="RavagerManager")
                         handled = True
 
             # 4. Wait safely outside danger zone (prevent macro from walking into cannons)
@@ -262,7 +274,10 @@ class RavagerManager:
                     critic_distance = 3.0
 
             if (not handled) and (closest_danger is not None) and (min_danger_dist < critic_distance):
-                ravager.stop()
+                bot.action_registry.submit_action(tag=ravager.tag,
+                                                  action=lambda r=ravager: r.stop(),
+                                                  priority=30,
+                                                  source="RavagerManager")
                 handled = True
 
             if handled:
@@ -287,7 +302,10 @@ class RavagerManager:
                     dangerous_position=closest_danger.position,
                     dist=2.0
                 )
-                roach.move(safe_pos)
+                bot.action_registry.submit_action(tag=roach.tag,
+                                                  action=lambda r=roach, p=safe_pos: r.move(p),
+                                                  priority=60,
+                                                  source="RavagerManager")
                 handled = True
 
             if not handled:
@@ -296,17 +314,26 @@ class RavagerManager:
                     dist_to_enemy = get_distance(roach.position, closest_enemy.position)
                     if dist_to_enemy < 7:
                         if roach.weapon_ready:
-                            roach.attack(closest_enemy.position)
+                            bot.action_registry.submit_action(tag=roach.tag,
+                                                              action=lambda r=roach, t=closest_enemy.position: r.attack(t),
+                                                              priority=40,
+                                                              source="RavagerManager")
                         else:
                             retreat_pos = calculate_retreat_position(
                                 roach.position, closest_enemy.position, retreat_dist=1.0
                             )
-                            roach.move(retreat_pos)
+                            bot.action_registry.submit_action(tag=roach.tag,
+                                                              action=lambda r=roach, p=retreat_pos: r.move(p),
+                                                              priority=60,
+                                                              source="RavagerManager")
                         handled = True
 
             # Wait safely outside danger zone
             if not handled and closest_danger is not None and min_danger_dist < 15.0:
-                roach.stop()
+                bot.action_registry.submit_action(tag=roach.tag,
+                                                  action=lambda r=roach: r.stop(),
+                                                  priority=30,
+                                                  source="RavagerManager")
                 handled = True
 
             if handled:
