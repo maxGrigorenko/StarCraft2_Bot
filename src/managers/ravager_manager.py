@@ -4,7 +4,6 @@ from sc2.ids.ability_id import AbilityId
 from sc2.position import Point2
 
 
-# Attack ranges of dangerous static defense structures
 STATIC_DEFENSE_RANGES = {
     UnitTypeId.PHOTONCANNON: 7.0,
     UnitTypeId.SHIELDBATTERY: 6.0,
@@ -71,7 +70,7 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
     all_targets = list(priority_targets) + list(other_targets)
     best_sieged_tank = None
     best_sieged_dist = 9999
-    
+
     for target in all_targets:
         if hasattr(target, 'type_id'):
             if target.type_id == UnitTypeId.SIEGETANKSIEGED:
@@ -87,7 +86,7 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
                     if safe:
                         best_sieged_dist = d
                         best_sieged_tank = target
-    
+
     if best_sieged_tank is not None:
         return best_sieged_tank
 
@@ -192,7 +191,7 @@ class RavagerManager:
             handled = False
             closest_danger = None
             can_cast_bile = await bot.can_cast(ravager, AbilityId.EFFECT_CORROSIVEBILE, only_check_energy_and_cooldown=True)
-            
+
             min_danger_dist = 9999
             for struct in dangerous_structures:
                 d = get_distance(ravager.position, struct.position)
