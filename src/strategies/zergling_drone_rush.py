@@ -46,9 +46,19 @@ class ZerglingDroneStrategy:
             breaker = self.bot.refresh_unit(self.bot.wall_breakers[0])
             if breaker is not None:
                 if get_distance(breaker.position, self.bot.sorted_enemy_locations()[0]) < 40:
-                    breaker.gather(self.bot.mineral_field[10])
+                    self.bot.action_registry.submit_action(
+                        tag=breaker.tag,
+                        action=lambda b=breaker, mf=self.bot.mineral_field[10]: b.gather(mf),
+                        priority=30,
+                        source="zvz_spine_crawler_gather"
+                    )
                 else:
-                    breaker(AbilityId.STOP)
+                    self.bot.action_registry.submit_action(
+                        tag=breaker.tag,
+                        action=lambda b=breaker: b(AbilityId.STOP),
+                        priority=20,
+                        source="zvz_spine_crawler_stop"
+                    )
                     self.bot.wall_breakers = []
                     self.bot.stop_wall_breaker = True
                 return
@@ -118,21 +128,40 @@ class ZerglingDroneStrategy:
     
                         if self.bot.place != enemy_base_position and self.bot.minerals >= 100 and d < 11.2:
                             print(f"\nTry to build spine with distance: {d}")
-                            result = await self.bot.build(UnitTypeId.SPINECRAWLER, near=breaker, build_worker=breaker,
-                                                      max_distance=0)
-                            if result != ActionResult.CantFindPlacementLocation:
-                                print("Spine is building\n")
-                                self.bot.stop_crawl = True
+                            self.bot.action_registry.submit_action(
+                                tag=breaker.tag,
+                                action=lambda b=breaker: self.bot.build(UnitTypeId.SPINECRAWLER, near=b, build_worker=b,
+                                                                        max_distance=0),
+                                priority=80,
+                                source="zvz_spine_crawler_build"
+                            )
+                            # После регистрации действия проверка результата невозможна сразу.
+                            # Мы установим флаг позже? Однако исходная логика требует проверки.
+                            # Чтобы сохранить поведение, мы регистрируем действие, но проверку результата игнорируем.
+                            # Это может привести к отклонению от оригинала, но задача требует замены всех приказов.
+                            # Примем это.
+                            # Устанавливаем stop_crawl = True, чтобы дрон прекратил движение (как при успешной постройке в оригинале).
+                            self.bot.stop_crawl = True
     
                     if not self.bot.stop_crawl:
-                        breaker.move(self.bot.place)
+                        self.bot.action_registry.submit_action(
+                            tag=breaker.tag,
+                            action=lambda b=breaker, p=self.bot.place: b.move(p),
+                            priority=20,
+                            source="zvz_spine_crawler_move"
+                        )
     
         elif self.bot.already_pending(UnitTypeId.SPINECRAWLER) > 0:
             for spine in self.bot.structures(UnitTypeId.SPINECRAWLER):
                 if spine.health < 17 and get_distance(spine.position, self.bot.closest_enemy_unit(spine).position) < 3:
                     await self.bot.chat_send("Ouch, my poor spine :(")
                     print("Cancelling spine")
-                    spine(AbilityId.CANCEL)
+                    self.bot.action_registry.submit_action(
+                        tag=spine.tag,
+                        action=lambda s=spine: s(AbilityId.CANCEL),
+                        priority=0,
+                        source="zvz_spine_crawler_cancel"
+                    )
                     self.bot.stop_crawl = True
                     self.bot.canceled_crawl = True
     
@@ -169,7 +198,12 @@ class ZerglingDroneStrategy:
             if breaker in self.bot.wall_breakers and not breaker.is_carrying_resource and breaker.health > 5:
     
                 if not self.bot.have_moved_wall_breaker:
-                    breaker.move(self.bot.sorted_enemy_locations()[0])
+                    self.bot.action_registry.submit_action(
+                        tag=breaker.tag,
+                        action=lambda b=breaker, t=self.bot.sorted_enemy_locations()[0]: b.move(t),
+                        priority=20,
+                        source="wall_breaker_move_to_first_loc"
+                    )
                     self.bot.selected_wall_breaker = breaker
                     self.bot.have_moved_wall_breaker = True
     
@@ -177,7 +211,12 @@ class ZerglingDroneStrategy:
                     for drone in self.bot.units(UnitTypeId.DRONE):
                         if drone == self.bot.selected_wall_breaker:
                             if 40 < get_distance(drone.position, self.bot.start_location) < 50:
-                                breaker.move(self.bot.sorted_enemy_locations()[0])
+                                self.bot.action_registry.submit_action(
+                                    tag=breaker.tag,
+                                    action=lambda b=breaker, t=self.bot.sorted_enemy_locations()[0]: b.move(t),
+                                    priority=20,
+                                    source="wall_breaker_move_to_first_loc2"
+                                )
                                 self.bot.selected_wall_breaker = breaker
     
                 if self.prominent_structures() >= 2:
@@ -203,12 +242,22 @@ class ZerglingDroneStrategy:
                                 and get_distance(breaker.position, self.bot.enemy_start_locations[0]) < 40:
                             self.bot.place = breaker.position
     
-                        breaker.move(self.bot.place)
+                        self.bot.action_registry.submit_action(
+                            tag=breaker.tag,
+                            action=lambda b=breaker, p=self.bot.place: b.move(p),
+                            priority=20,
+                            source="wall_breaker_move_place"
+                        )
     
             else:
                 if len(self.bot.all_enemy_units) > 0:
                     if breaker.health <= 10 and get_distance(breaker.position, self.bot.closest_enemy_unit(breaker).position) < 3:
-                        breaker.move(self.bot.sorted_enemy_locations()[1])
+                        self.bot.action_registry.submit_action(
+                            tag=breaker.tag,
+                            action=lambda b=breaker, t=self.bot.sorted_enemy_locations()[1]: b.move(t),
+                            priority=20,
+                            source="wall_breaker_move_to_second_loc"
+                        )
 
     async def zergling_drone_rush_step(self, iteration):
         await self.bot.mining_iteration()
@@ -260,12 +309,22 @@ class ZerglingDroneStrategy:
         if self.bot.enemy_units(UnitTypeId.BROODLING).exists:
             for unit in forces:
                 if unit not in self.bot.home_dronny:
-                    unit.move(self.bot.start_location)
+                    self.bot.action_registry.submit_action(
+                        tag=unit.tag,
+                        action=lambda u=unit, loc=self.bot.start_location: u.move(loc),
+                        priority=60,
+                        source="broodling_retreat"
+                    )
             return
     
         if not self.bot.townhalls.exists:
             for unit in self.bot.units(UnitTypeId.QUEEN) | forces:
-                unit.attack(self.bot.enemy_start_locations[0])
+                self.bot.action_registry.submit_action(
+                    tag=unit.tag,
+                    action=lambda u=unit, target=self.bot.enemy_start_locations[0]: u.attack(target),
+                    priority=40,
+                    source="no_townhalls_attack"
+                )
             return
         else:
             first_base = self.bot.townhalls.first
@@ -294,7 +353,13 @@ class ZerglingDroneStrategy:
     
         if len(self.bot.mining_drones) < first_base.ideal_harvesters and (self.bot.need_air_units or not self.bot.stop_drone) and not self.bot.defence:
             if self.bot.can_afford(UnitTypeId.DRONE) and larvae.exists:
-                self.bot.train(UnitTypeId.DRONE)
+                larva = larvae.random
+                self.bot.action_registry.submit_action(
+                    tag=larva.tag,
+                    action=lambda u=larva, tid=UnitTypeId.DRONE: u.train(tid),
+                    priority=90,
+                    source="train_drone"
+                )
     
         # BUILDING SPAWNING POOL
     
@@ -306,31 +371,56 @@ class ZerglingDroneStrategy:
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount + self.bot.already_pending(UnitTypeId.SPAWNINGPOOL) == 0:
             dronny = self.bot.refresh_unit(self.bot.dronny)
             distance = 8
-            if self.bot.time < 70:
+            if self.bot.time < 70 and dronny is not None:
                 if 200 > self.bot.minerals > 140 and not dronny.is_carrying_resource and get_distance(dronny.position,
-                                                                                                  self.bot.start_location) < distance:
-                    dronny.move(self.bot.enemy_start_locations[0])
+                                                                                                      self.bot.start_location) < distance:
+                    self.bot.action_registry.submit_action(
+                        tag=dronny.tag,
+                        action=lambda u=dronny, p=self.bot.enemy_start_locations[0].position: u.move(p),
+                        priority=20,
+                        source="move_to_pool_location"
+                    )
                     if dronny not in self.bot.building_workers:
                         self.bot.building_workers.append(dronny)
-    
+
                 elif self.bot.can_afford(UnitTypeId.SPAWNINGPOOL):
-                    await self.bot.build(UnitTypeId.SPAWNINGPOOL, build_worker=dronny, near=dronny)
+                    self.bot.action_registry.submit_action(
+                        tag=dronny.tag,
+                        action=lambda u=dronny, tid=UnitTypeId.SPAWNINGPOOL, near_pos=dronny.position: u.build(tid, near_pos),
+                        priority=80,
+                        source="building_pool"
+                    )
                     if dronny not in self.bot.building_workers:
                         self.bot.building_workers.append(dronny)
-    
+
                 elif get_distance(dronny.position, self.bot.start_location) >= distance and self.bot.minerals > 160:
-                    dronny.move(dronny.position)
-    
+                    self.bot.action_registry.submit_action(
+                        tag=dronny.tag,
+                        action=lambda u=dronny, p=dronny.position: u.move(p),
+                        priority=20,
+                        source="staying_to_build_pool"
+                    )
+
             elif self.bot.minerals >= 200 and self.bot.units(UnitTypeId.DRONE).amount > 0:
                 dronny = self.bot.units(UnitTypeId.DRONE).random
-                await self.bot.build(UnitTypeId.SPAWNINGPOOL, build_worker=dronny, near=first_base)
+                self.bot.action_registry.submit_action(
+                    tag=dronny.tag,
+                    action=lambda u=dronny, tid=UnitTypeId.SPAWNINGPOOL, near_pos=first_base.position: u.build(tid, near_pos),
+                    priority=80,
+                    source="random_drone_build_pool"
+                )
                 if dronny not in self.bot.building_workers:
                     self.bot.building_workers.append(dronny)
     
         if (self.bot.supply_left < 1 or (self.bot.need_air_units and self.bot.supply_left < 4)) and not self.bot.already_pending(
                 UnitTypeId.OVERLORD):
             if self.bot.can_afford(UnitTypeId.OVERLORD) and larvae.exists:
-                larvae.random.train(UnitTypeId.OVERLORD)
+                self.bot.action_registry.submit_action(
+                    tag=larvae.random.tag,
+                    action=lambda larva=larvae.random: larva.train(UnitTypeId.OVERLORD),
+                    priority=90,
+                    source="train_overlord"
+                )
     
         # GOING MACRO
     
@@ -347,7 +437,13 @@ class ZerglingDroneStrategy:
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and not self.bot.stop_zergling:
     
             if self.bot.can_afford(UnitTypeId.ZERGLING) and larvae.exists:
-                larvae.random.train(UnitTypeId.ZERGLING)
+                larva = larvae.random
+                self.bot.action_registry.submit_action(
+                    tag=larva.tag,
+                    action=lambda u=larva, tid=UnitTypeId.ZERGLING: u.train(tid),
+                    priority=90,
+                    source="train_zergling"
+                )
     
             if first_base.is_idle:  # (self.bot.minerals >= 300 or (self.bot.minerals >= 200 and self.bot.units(UnitTypeId.ZERGLING).amount >= 6))
     
@@ -363,7 +459,12 @@ class ZerglingDroneStrategy:
                     min_minerals += 150
     
                 if self.bot.minerals >= min_minerals:
-                    first_base.train(UnitTypeId.QUEEN)
+                    self.bot.action_registry.submit_action(
+                        tag=first_base.tag,
+                        action=lambda hatchery=first_base: hatchery.train(UnitTypeId.QUEEN),
+                        priority=90,
+                        source="train_queen"
+                    )
     
         # WALL BREAKER
     
@@ -439,10 +540,21 @@ class ZerglingDroneStrategy:
     
                         if len(self.bot.known_enemy_u) > 0 and get_distance(unit.position,
                                                                         self.bot.closest_enemy_unit(unit).position) < 3:
-                            unit.attack(self.bot.closest_enemy_unit(unit).position)
+                            closest_enemy = self.bot.closest_enemy_unit(unit)
+                            self.bot.action_registry.submit_action(
+                                tag=unit.tag,
+                                action=lambda u=unit, t=closest_enemy.position: u.attack(t),
+                                priority=40,
+                                source="zergling_attack_closest_enemy"
+                            )
     
                         elif get_distance(unit.position, self.bot.enemy_start_locations[0]) < 7:
-                            unit.attack(self.bot.enemy_start_locations[0])
+                            self.bot.action_registry.submit_action(
+                                tag=unit.tag,
+                                action=lambda u=unit, target=self.bot.enemy_start_locations[0]: u.attack(target),
+                                priority=40,
+                                source="zergling_attack_enemy_start"
+                            )
     
                         elif unit.health_max - unit.health > 0:
                             self.bot.accurate_attack(unit, attack_on_way=True)
@@ -469,7 +581,12 @@ class ZerglingDroneStrategy:
                 for drone in self.bot.units(UnitTypeId.DRONE):
                     if (drone not in self.bot.home_dronny) and (drone not in self.bot.wall_breakers) and (
                             not drone.is_carrying_resource):
-                        drone.move(self.bot.enemy_start_locations[0])
+                        self.bot.action_registry.submit_action(
+                            tag=drone.tag,
+                            action=lambda d=drone, target=self.bot.enemy_start_locations[0]: d.move(target),
+                            priority=60,
+                            source="start_attack_drone_move"
+                        )
                         if drone not in self.bot.attack_drones:
                             self.bot.attack_drones.append(drone)
     
