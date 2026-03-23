@@ -208,7 +208,6 @@ class RoachStrategy:
                         self.bot.building_workers.append(dronny)
 
                 elif self.bot.can_afford(UnitTypeId.SPAWNINGPOOL):
-                    # Отправляем заявку на постройку через action_registry
                     self.bot.action_registry.submit_action(
                         tag=dronny.tag,
                         action=lambda u=dronny, tid=UnitTypeId.SPAWNINGPOOL, near_pos=dronny.position: u.build(tid, near_pos),
@@ -227,7 +226,6 @@ class RoachStrategy:
                     )
 
             elif self.bot.minerals >= 200 and self.bot.units(UnitTypeId.DRONE).amount > 0 and dronny is not None:
-                # Отправляем заявку на постройку через action_registry
                 self.bot.action_registry.submit_action(
                     tag=dronny.tag,
                     action=lambda u=dronny, tid=UnitTypeId.SPAWNINGPOOL, near_pos=first_base.position: u.build(tid, near_pos),
@@ -297,7 +295,6 @@ class RoachStrategy:
 
                 elif self.bot.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and self.bot.can_afford(
                         UnitTypeId.ROACHWARREN):
-                    # Отправляем заявку на постройку через action_registry
                     self.bot.action_registry.submit_action(
                         tag=dronny.tag,
                         action=lambda u=dronny, tid=UnitTypeId.ROACHWARREN, near_pos=dronny.position: u.build(tid, near_pos),
@@ -350,7 +347,6 @@ class RoachStrategy:
         if self.bot.already_pending_upgrade(UpgradeId.BURROW) == 0 and self.bot.can_afford(
                 UpgradeId.BURROW
         ):
-            # Используем тег любого здания, например, первого хатки
             hatchery = self.bot.townhalls.first
             if hatchery:
                 self.bot.action_registry.submit_action(
