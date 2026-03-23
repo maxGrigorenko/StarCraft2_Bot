@@ -9,6 +9,7 @@ from src.managers.action_registry import ActionRegistry
 from src.utils.coordinate_functions import *
 from src.strategies.roach_rush import RoachStrategy
 from src.strategies.ravager_rush import RavagerStrategy
+from src.strategies.zergling_drone_rush import ZerglingDroneStrategy
 
 import sc2
 from sc2.data import Difficulty
@@ -87,11 +88,7 @@ class SmallBly(BotAI):
         map_scout, need_group, group_units, defending, micro_element, queen_management, \
         no_units_in_opponent_main, proxy, mining_iteration, find_final_structures, \
         is_opponents_main_won, manage_queen_attack, find_expand, has_expand_ramp, \
-        accurate_attack, closest_unit_dist, air_danger_units
-
-    from src.strategies.zergling_drone_rush import prominent_structures, zergling_drone_rush_step, \
-        null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
-        wall_breaker_do_block, macro_element
+        accurate_attack, closest_unit_dist, air_danger_units, macro_element
 
     def __init__(self):
         super().__init__()
@@ -140,6 +137,7 @@ class SmallBly(BotAI):
         self.strategy = False
         self.roach_strategy = RoachStrategy(self)
         self.ravager_strategy = RavagerStrategy(self)
+        self.zergling_drone_strategy = ZerglingDroneStrategy(self)
 
         # mineral filed standard distance: 6-8
         # {hatchery: {mineral1: [drone1, drone2], mineral2: [drone1, drone2], ...}, ... }
@@ -147,7 +145,7 @@ class SmallBly(BotAI):
     def read_and_choose_strategy(self):
         opponent_id = self.opponent_id
         if opponent_id is None:
-            self.strategy = StrategyID.RAVAGER_RUSH
+            self.strategy = StrategyID.ZERGLING_DRONE_RUSH
             return
 
         with open("data/statistics.txt") as f:
@@ -211,7 +209,7 @@ class SmallBly(BotAI):
                                             enemy_race=self.enemy_race)
 
         if self.strategy == StrategyID.ZERGLING_DRONE_RUSH:
-            await self.zergling_drone_rush_step(iteration=iteration)
+            await self.zergling_drone_strategy.zergling_drone_rush_step(iteration=iteration)
 
         elif self.strategy == StrategyID.ROACH_RUSH:
             await self.roach_strategy.roach_rush_step(iteration=iteration)
