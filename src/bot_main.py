@@ -8,6 +8,7 @@ from src.managers.ravager_manager import RavagerManager
 from src.managers.action_registry import ActionRegistry
 from src.utils.coordinate_functions import *
 from src.strategies.roach_rush import RoachStrategy
+from src.strategies.ravager_rush import RavagerStrategy
 
 import sc2
 from sc2.data import Difficulty
@@ -92,10 +93,6 @@ class SmallBly(BotAI):
         null_wall_breakers, check_wall_breakers, zvz_spine_crawler, \
         wall_breaker_do_block, macro_element
 
-
-    from src.strategies.ravager_rush import ravager_rush_step, morph_ravagers, \
-        use_corrosive_bile
-
     def __init__(self):
         super().__init__()
         self.overlord_manager = OverlordManager(self)
@@ -142,6 +139,7 @@ class SmallBly(BotAI):
         self.main_ramp_passed = []
         self.strategy = False
         self.roach_strategy = RoachStrategy(self)
+        self.ravager_strategy = RavagerStrategy(self)
 
         # mineral filed standard distance: 6-8
         # {hatchery: {mineral1: [drone1, drone2], mineral2: [drone1, drone2], ...}, ... }
@@ -149,7 +147,7 @@ class SmallBly(BotAI):
     def read_and_choose_strategy(self):
         opponent_id = self.opponent_id
         if opponent_id is None:
-            self.strategy = StrategyID.ROACH_RUSH
+            self.strategy = StrategyID.RAVAGER_RUSH
             return
 
         with open("data/statistics.txt") as f:
@@ -219,7 +217,7 @@ class SmallBly(BotAI):
             await self.roach_strategy.roach_rush_step(iteration=iteration)
 
         elif self.strategy == StrategyID.RAVAGER_RUSH:
-            await self.ravager_rush_step(iteration=iteration)
+            await self.ravager_strategy.ravager_rush_step(iteration=iteration)
 
         for action_func in self.action_registry.resolve():
             action_func()
