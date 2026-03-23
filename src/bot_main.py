@@ -96,22 +96,22 @@ class SmallBly(BotAI):
         self.ravager_manager = RavagerManager()
         self.action_registry = ActionRegistry()
         self.need_to_attack_main_base = True
-        self.in_scout = []
+        self.in_scout_tags = []
         self.location_counter = 0
         self.stop_drone = False
         self.defence = False
         self.locations = []
         self.known_enemy_u = []
-        self.home_dronny: Units = Units([], self)
+        self.home_dronny_tags: list[int] = []
         self.stop_group = False
         self.busy_overlords = []
-        self.in_micro = []
-        self.go_back_points = []
+        self.in_micro_tags: list[int] = []
+        self.go_back_points_tags: list[int] = []
         self.need_air_units = False
         self.stop_zergling = False
-        self.dronny = False
+        self.dronny_tag = None
         self.selected_wall_breaker = False
-        self.wall_breakers = []
+        self.wall_breakers_tags: list[int] = []
         self.have_moved_wall_breaker = False
         self.place = False
         self.begin_position = False
@@ -120,20 +120,20 @@ class SmallBly(BotAI):
         self.stop_new_drone_attack_time = 100
         self.canceled_crawl = False
         self.muta_tagged = False
-        self.attack_drones = []
-        self.drones_on_gas = []
-        self.building_workers = []
-        self.mining_drones = []
+        self.attack_drones_tags: list[int] = []
+        self.drones_on_gas_tags: list[int] = []
+        self.building_workers_tags: list[int] = []
+        self.mining_drones_tags: list[int] = []
         self.mining_hatchery_data = {}  # {hatchery1: [mineral_field1, mineral_field2, ...], hatchery2: [mineral_field1, mineral_field2, ...], ...}
         self.mining_mineral_data = {}  # {mineral_filed1: [drone1, drone2], mineral_field2: [drone1, drone2], ...}
         self.mining_drone_data = {}  # {drone1: [hatchery_position_mining, mineral_position_mining], drone2: [position1, position2], ...}
         self.mineral_field_distances = {}
-        self.in_burrow_process = []
+        self.in_burrow_process_tags: list[int] = []
         self.two_enemy_ramps = []
         self.expand = False
         self.expand_rump_exist = False
-        self.expand_ramp_passed = []
-        self.main_ramp_passed = []
+        self.expand_ramp_passed_tags: list[int] = []
+        self.main_ramp_passed_tags: list[int] = []
         self.strategy = False
         self.roach_strategy = RoachStrategy(self)
         self.ravager_strategy = RavagerStrategy(self)
@@ -145,7 +145,7 @@ class SmallBly(BotAI):
     def read_and_choose_strategy(self):
         opponent_id = self.opponent_id
         if opponent_id is None:
-            self.strategy = StrategyID.ZERGLING_DRONE_RUSH
+            self.strategy = StrategyID.RAVAGER_RUSH
             return
 
         with open("data/statistics.txt") as f:
@@ -227,7 +227,7 @@ def main():
         # Human(Race.Protoss),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
         Bot(Race.Zerg, SmallBly()),
-        Computer(Race.Terran, Difficulty.VeryHard),
+        Computer(Race.Zerg, Difficulty.VeryHard),
     ], realtime=False,
              disable_fog=False,
              random_seed=0,

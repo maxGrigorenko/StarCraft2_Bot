@@ -126,21 +126,24 @@ class RavagerStrategy:
 
         # BUILDING DRONES
         if self.bot.structures(UnitTypeId.ROACHWARREN).amount + self.bot.already_pending(UnitTypeId.ROACHWARREN) == 0:
-            if len(self.bot.mining_drones) < first_base.ideal_harvesters and (
+            if len(self.bot.mining_drones_tags) < first_base.ideal_harvesters and (
                     self.bot.need_air_units or not self.bot.stop_drone):
                 if self.bot.can_afford(UnitTypeId.DRONE) and larvae.exists:
                     self.bot.train(UnitTypeId.DRONE)
 
-        if not self.bot.dronny or self.bot.dronny is None:
+        dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
+
+        if not dronny:
             drones_without_minerals = [unit for unit in self.bot.units(UnitTypeId.DRONE) if
                                        not unit.is_carrying_resource]
             if len(drones_without_minerals) >= 1:
-                self.bot.dronny = self.bot.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
+                chosen = self.bot.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
+                self.bot.dronny_tag = chosen.tag if chosen else None
+                dronny = chosen
 
         # BUILDING SPAWNING POOL
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount + self.bot.already_pending(UnitTypeId.SPAWNINGPOOL) == 0:
-            self.bot.dronny = self.bot.refresh_unit(self.bot.dronny)
-            dronny = self.bot.dronny
+            dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
             distance = 8
             if self.bot.time < 70 and dronny is not None:
                 if 200 > self.bot.minerals > 140 and not dronny.is_carrying_resource and get_distance(dronny.position,
@@ -151,13 +154,13 @@ class RavagerStrategy:
                         priority=30,
                         source="ravager_rush_drone_move_to_enemy_early"
                     )
-                    if dronny not in self.bot.building_workers:
-                        self.bot.building_workers.append(dronny)
+                    if dronny.tag not in self.bot.building_workers_tags:
+                        self.bot.building_workers_tags.append(dronny.tag)
 
                 elif self.bot.can_afford(UnitTypeId.SPAWNINGPOOL):
                     await self.bot.build(UnitTypeId.SPAWNINGPOOL, build_worker=dronny, near=dronny)
-                    if dronny not in self.bot.building_workers:
-                        self.bot.building_workers.append(dronny)
+                    if dronny.tag not in self.bot.building_workers_tags:
+                        self.bot.building_workers_tags.append(dronny.tag)
 
                 elif get_distance(dronny.position, self.bot.start_location) >= distance and self.bot.minerals > 160:
                     self.bot.action_registry.submit_action(
@@ -169,26 +172,24 @@ class RavagerStrategy:
 
             elif self.bot.minerals >= 200 and self.bot.units(UnitTypeId.DRONE).amount > 0 and dronny is not None:
                 await self.bot.build(UnitTypeId.SPAWNINGPOOL, build_worker=dronny, near=first_base)
-                if dronny not in self.bot.building_workers:
-                    self.bot.building_workers.append(dronny)
+                if dronny.tag not in self.bot.building_workers_tags:
+                    self.bot.building_workers_tags.append(dronny.tag)
 
         # BUILDING EXTRACTORS
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
                 (self.bot.structures(UnitTypeId.EXTRACTOR).amount + self.bot.already_pending(
                     UnitTypeId.EXTRACTOR) == 0):
-            self.bot.dronny = self.bot.refresh_unit(self.bot.dronny)
-            dronny = self.bot.dronny
+            dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
             if self.bot.can_afford(UnitTypeId.EXTRACTOR) and dronny is not None:
-                target = self.bot.vespene_geyser.closest_to(
-                    dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
+                target = self.bot.vespene_geyser.closest_to(dronny.position)
                 self.bot.action_registry.submit_action(
                     tag=dronny.tag,
                     action=lambda d=dronny, t=target: d.build(UnitTypeId.EXTRACTOR, t),
                     priority=60,
                     source="ravager_rush_build_extractor"
                 )
-                if dronny not in self.bot.building_workers:
-                    self.bot.building_workers.append(dronny)
+                if dronny.tag not in self.bot.building_workers_tags:
+                    self.bot.building_workers_tags.append(dronny.tag)
 
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
                 self.bot.structures(UnitTypeId.EXTRACTOR).ready.exists and \
@@ -199,8 +200,9 @@ class RavagerStrategy:
                             if get_distance(g.position, existing_extractor.position) > 2]
             if free_geysers and self.bot.can_afford(UnitTypeId.EXTRACTOR):
                 drones_without_minerals = [unit for unit in self.bot.units(UnitTypeId.DRONE)
-                                           if
-                                           not unit.is_carrying_resource and unit != self.bot.dronny and unit not in self.bot.building_workers]
+                                           if not unit.is_carrying_resource
+                                           and unit.tag != self.bot.dronny_tag
+                                           and unit.tag not in self.bot.building_workers_tags]
                 if drones_without_minerals:
                     worker = drones_without_minerals[0]
                     self.bot.action_registry.submit_action(
@@ -209,8 +211,8 @@ class RavagerStrategy:
                         priority=60,
                         source="ravager_rush_build_second_extractor"
                     )
-                    if worker not in self.bot.building_workers:
-                        self.bot.building_workers.append(worker)
+                    if worker.tag not in self.bot.building_workers_tags:
+                        self.bot.building_workers_tags.append(worker.tag)
 
         for extractor in self.bot.structures(UnitTypeId.EXTRACTOR):
             if extractor.assigned_harvesters < extractor.ideal_harvesters and \
@@ -218,27 +220,28 @@ class RavagerStrategy:
                 w = self.bot.workers.closer_than(6, extractor)
                 if w.exists:
                     drone = w.random
-                    if drone != self.bot.dronny:
+                    if drone.tag != self.bot.dronny_tag:
                         self.bot.action_registry.submit_action(
                             tag=drone.tag,
                             action=lambda d=drone, e=extractor: d.gather(e),
                             priority=40,
                             source="ravager_rush_gather_gas"
                         )
-                        self.bot.drones_on_gas.append(drone)
+                        if drone.tag not in self.bot.drones_on_gas_tags:
+                            self.bot.drones_on_gas_tags.append(drone.tag)
 
         # BUILDING ROACH WARREN
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
                 (self.bot.structures(UnitTypeId.ROACHWARREN).amount + self.bot.already_pending(
                     UnitTypeId.ROACHWARREN) == 0):
-            self.bot.dronny = self.bot.refresh_unit(self.bot.dronny)
-            dronny = self.bot.dronny
-            if not dronny or dronny is None:
+            dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
+            if not dronny:
                 drones_without_minerals = [unit for unit in self.bot.units(UnitTypeId.DRONE) if
                                            not unit.is_carrying_resource]
                 if len(drones_without_minerals) >= 1:
-                    self.bot.dronny = self.bot.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
-                    dronny = self.bot.dronny
+                    chosen = self.bot.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
+                    self.bot.dronny_tag = chosen.tag if chosen else None
+                    dronny = chosen
 
             distance = 8
             if dronny is not None:
@@ -250,14 +253,14 @@ class RavagerStrategy:
                         priority=30,
                         source="ravager_rush_drone_move_to_enemy"
                     )
-                    if dronny not in self.bot.building_workers:
-                        self.bot.building_workers.append(dronny)
+                    if dronny.tag not in self.bot.building_workers_tags:
+                        self.bot.building_workers_tags.append(dronny.tag)
 
                 elif self.bot.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and self.bot.can_afford(
                         UnitTypeId.ROACHWARREN):
                     await self.bot.build(UnitTypeId.ROACHWARREN, build_worker=dronny, near=dronny)
-                    if dronny not in self.bot.building_workers:
-                        self.bot.building_workers.append(dronny)
+                    if dronny.tag not in self.bot.building_workers_tags:
+                        self.bot.building_workers_tags.append(dronny.tag)
 
                 elif get_distance(dronny.position, self.bot.start_location) >= distance:
                     self.bot.action_registry.submit_action(
@@ -317,7 +320,7 @@ class RavagerStrategy:
                 not self.bot.no_units_in_opponent_main() and self.bot.time > 100)) and self.bot.need_to_attack_main_base:
 
             for unit in forces:
-                for unit_in_known in self.bot.known_enemy_u:
+                for unit_in_known in list(self.bot.known_enemy_u):
                     if unit_in_known not in self.bot.enemy_units:
                         self.bot.known_enemy_u.remove(unit_in_known)
 

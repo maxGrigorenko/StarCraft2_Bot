@@ -5,10 +5,19 @@ from sc2.ids.ability_id import AbilityId
 import random
 
 
-def refresh_unit(self, unit):
-    for u in self.all_own_units:
-        if u == unit:
-            return u
+def refresh_unit(self, unit_or_tag):
+    if unit_or_tag is None:
+        return None
+    if isinstance(unit_or_tag, int):
+        try:
+            return self.units.by_tag(unit_or_tag)
+        except KeyError:
+            return None
+    # If it's a Unit object, refresh it by tag
+    try:
+        return self.units.by_tag(unit_or_tag.tag)
+    except KeyError:
+        return None
 
 
 def enemy_dangerous_structures(self):
@@ -118,32 +127,31 @@ async def map_scout(self, army):
     idle_massiv = []
 
     for i in army:
-        if i not in self.home_dronny:
+        if i.tag not in self.home_dronny_tags:
             idle_massiv.append(i)
 
     if len(idle_massiv) >= len(locations):
         for i in range(len(locations)):
-            if idle_massiv[i] not in self.in_scout:
+            if idle_massiv[i].tag not in self.in_scout_tags:
                 await self.base_scout(idle_massiv[i], i)
-                self.in_scout.append(idle_massiv[i])
+                self.in_scout_tags.append(idle_massiv[i].tag)
 
     else:
         for a in army:
-            if a not in self.home_dronny:
+            if a.tag not in self.home_dronny_tags:
                 dist = get_distance(a.position, locations[self.location_counter])
                 if dist < 5:
                     self.location_counter += 1
 
             for j in army:
-                if j not in self.home_dronny and j not in self.units(UnitTypeId.OVERLORD):
+                if j.tag not in self.home_dronny_tags and j.type_id != UnitTypeId.OVERLORD:
                     await self.base_scout(j, self.location_counter)
 
 
 def need_group(self, middle_unit, max_distance, max_middle_group_dist):
     forces = []
     for unit in self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING):
-
-        if unit not in self.home_dronny and unit != middle_unit and unit not in self.wall_breakers:
+        if unit.tag not in self.home_dronny_tags and unit.tag != middle_unit.tag and unit.tag not in self.wall_breakers_tags:
             forces.append(unit)
 
     distances = []
@@ -189,7 +197,7 @@ def need_group(self, middle_unit, max_distance, max_middle_group_dist):
 async def group_units(self, middle_unit, max_distance):
     forces = []
     for unit in self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING):
-        if unit not in self.home_dronny and unit not in self.wall_breakers:
+        if unit.tag not in self.home_dronny_tags and unit.tag not in self.wall_breakers_tags:
             forces.append(unit)
 
     positions = []
@@ -203,15 +211,14 @@ async def group_units(self, middle_unit, max_distance):
     y = 0
 
     for pos in positions:
-        x += pos.position[0]
-        y += pos.position[1]
+        x += pos.x
+        y += pos.y
     lp = len(positions)
 
     if lp == 0:
         return
 
-    medium_position = [x / lp, y / lp]
-    medium_position = sc2.position.Point2(medium_position)
+    medium_position = sc2.position.Point2((x / lp, y / lp))
 
     for unit in forces:
         unit.move(medium_position)
@@ -238,28 +245,31 @@ async def defending(self):
             else:
                 defenders_amount = int(enemies_in_attack_amount * 1.3) + 1
 
-            if len(self.attack_drones) < defenders_amount:
+            if len(self.attack_drones_tags) < defenders_amount:
                 for unit in self.units(UnitTypeId.DRONE) | self.units(UnitTypeId.ZERGLING):
                     if unit.health > 5:
-                        self.attack_drones.append(unit)
-                        if unit in self.drones_on_gas:
-                            self.drones_on_gas.remove(unit)
-                        if len(self.attack_drones) >= defenders_amount:
+                        self.attack_drones_tags.append(unit.tag)
+                        if unit.tag in self.drones_on_gas_tags:
+                            self.drones_on_gas_tags.remove(unit.tag)
+                        if len(self.attack_drones_tags) >= defenders_amount:
                             break
 
-            for unit in self.attack_drones:
-                if unit not in self.in_micro:
+            for tag in self.attack_drones_tags:
+                unit = self.refresh_unit(tag)
+                if unit is None:
+                    continue
+                if unit.tag not in self.in_micro_tags:
                     unit.attack(self.closest_unit(close_enemies, unit).position)
 
             self.defence = True
 
         if piece and self.defence:
             self.defence = False
-            self.attack_drones = []
+            self.attack_drones_tags.clear()
 
     if len(self.enemy_units) == 0 and self.defence:
         self.defence = False
-        self.attack_drones = []
+        self.attack_drones_tags.clear()
 
 
 async def micro_element(self):
@@ -270,25 +280,24 @@ async def micro_element(self):
     mineral_field = min(self.mineral_field, key=lambda x: get_distance(x.position, self.start_location))
 
     for drone in self.units(UnitTypeId.DRONE):
-        if drone not in self.home_dronny and drone not in self.wall_breakers:
+        if drone.tag not in self.home_dronny_tags and drone.tag not in self.wall_breakers_tags:
             drones.append(drone)
-
-    back_distance = 1
 
     for unit in drones:
         fighter = self.closest_enemy_unit(unit)
-        if not unit.weapon_ready: # int(unit.health) in [1, 2, 3, 4, 5, 11, 12, 13, 14, 15, 30, 31, 32, 33, 34]:
-            # if get_distance(unit.position, fighter.position) <= back_distance:
-            self.in_micro.append(unit)
-            unit.gather(mineral_field)  # mineral field must be not at the enemy's base
-            # print("Moving unit out", get_distance(unit.position, fighter.position))
-            self.go_back_points.append(unit)
+        if not unit.weapon_ready:
+            if unit.tag not in self.in_micro_tags:
+                self.in_micro_tags.append(unit.tag)
+            unit.gather(mineral_field)
+            if unit.tag not in self.go_back_points_tags:
+                self.go_back_points_tags.append(unit.tag)
 
-        if unit in self.go_back_points and unit.health > 5:
-            fighter_pos = fighter.position
-            if unit.weapon_ready:# get_distance(unit.position, fighter_pos) > back_distance - 0.05:
-                self.go_back_points.remove(unit)
-                self.in_micro.remove(unit)
+        if unit.tag in self.go_back_points_tags and unit.health > 5:
+            if unit.weapon_ready:
+                if unit.tag in self.go_back_points_tags:
+                    self.go_back_points_tags.remove(unit.tag)
+                if unit.tag in self.in_micro_tags:
+                    self.in_micro_tags.remove(unit.tag)
                 unit.attack(self.enemy_start_locations[0])
 
 
@@ -323,8 +332,9 @@ def proxy(self):
             print("Building proxy")
             target = self.vespene_geyser.closest_to(drone.position)
             drone.build(UnitTypeId.EXTRACTOR, target)
-            if drone not in self.building_workers:
-                self.building_workers.append(drone)
+            # Исправлено: используем building_workers_tags (список тегов) вместо building_workers
+            if drone.tag not in self.building_workers_tags:
+                self.building_workers_tags.append(drone.tag)
             break
 
 
@@ -338,14 +348,14 @@ async def mining_iteration(self):
 
         drones = []
         for drone in self.units(UnitTypeId.DRONE):
-            if (drone not in self.wall_breakers) and\
-                    (drone not in self.attack_drones) and\
-                    (drone not in self.building_workers) and\
-                    (drone not in self.drones_on_gas) and\
+            if (drone.tag not in self.wall_breakers_tags) and\
+                    (drone.tag not in self.attack_drones_tags) and\
+                    (drone.tag not in self.building_workers_tags) and\
+                    (drone.tag not in self.drones_on_gas_tags) and\
                     get_distance(drone.position, self.closest_unit(bases, drone).position) < 20:
                 drones.append(drone)
 
-        self.mining_drones = drones
+        self.mining_drones_tags = [drone.tag for drone in drones]
 
         try:
             self.refresh_mining_data(drones)  # (self, drones)
@@ -354,32 +364,21 @@ async def mining_iteration(self):
         except BaseException:
             print("Mining exception")
 
-    # FOR 1 BASE STRATEGIES; LONG-DIST MINING
-    # if not self.check_mineral_fields_near_base(self.townhalls.first):
-    #     print("TRY LONG-DIST MINING")
-
-    # if self.state.game_loop % (22.4 * 5) == 0:
-    #    logger.info(f"{self.time_formatted} Mined a total of {int(self.state.score.collected_minerals)} minerals")
-
-    # if iteration % 30 == 0:
-    #   print(f"\n{len(drones)} drones:\n{self.mining_mineral_data}\n{self.mining_hatchery_data}\n")
-
 
 async def find_final_structures(self, forces, army):
-    self.wall_breakers = []
-    # print("Now, we don't need to attack enemies main")
+    self.wall_breakers_tags.clear()
     if len(self.enemy_structures) > 0 and not self.all_known_structures_flying():
         for enemy_struct in self.enemy_structures:
             for unit in forces:
-                if unit not in self.home_dronny and unit.is_idle:
+                if unit.tag not in self.home_dronny_tags and unit.is_idle:
                     unit.attack(enemy_struct.position)
-            self.in_scout = []
+            self.in_scout_tags.clear()
 
     elif len(self.enemy_units) > 0 and not self.all_flying_enemies():
         for unit in forces:
-            if unit not in self.home_dronny:
+            if unit.tag not in self.home_dronny_tags:
                 unit.attack(self.enemy_units[0].position)
-        self.in_scout = []
+        self.in_scout_tags.clear()
 
     else:
         await self.map_scout(army)
@@ -428,22 +427,22 @@ async def is_opponents_main_won(self):
 async def macro_element(self):
     first_base = self.townhalls.first
     if self.structures(UnitTypeId.EXTRACTOR).amount + self.already_pending(UnitTypeId.EXTRACTOR) < 2 and len(
-            self.mining_drones) > 12:
+            self.mining_drones_tags) > 12:
         if self.can_afford(UnitTypeId.EXTRACTOR):
 
-            self.dronny = self.refresh_unit(self.dronny)
-            if not self.dronny or self.dronny is None:
-                self.dronny = self.closest_unit(
+            dronny = self.refresh_unit(self.dronny_tag)
+            if not dronny or dronny is None:
+                dronny = self.closest_unit(
                     [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
                     self.start_location)
-            dronny = self.dronny
+                self.dronny_tag = dronny.tag
 
             if self.can_afford(UnitTypeId.EXTRACTOR):
                 target = self.vespene_geyser.closest_to(
-                    dronny.position)  # "When building the gas structure, the target needs to be a unit (the vespene geyser) not the position of the vespene geyser."
+                    dronny.position)
                 dronny.build(UnitTypeId.EXTRACTOR, target)
-                if dronny not in self.building_workers:
-                    self.building_workers.append(dronny)
+                if dronny.tag not in self.building_workers_tags:
+                    self.building_workers_tags.append(dronny.tag)
                     return
 
     for extractor in self.structures(UnitTypeId.EXTRACTOR):
@@ -451,8 +450,9 @@ async def macro_element(self):
             w = self.workers.closer_than(6, extractor)
             if w.exists:
                 drone = w.random
-                drone.gather(extractor)  # !!!
-                self.drones_on_gas.append(drone)
+                drone.gather(extractor)
+                if drone.tag not in self.drones_on_gas_tags:
+                    self.drones_on_gas_tags.append(drone.tag)
 
     if self.structures(UnitTypeId.SPAWNINGPOOL).ready.exists:
         if not self.structures(UnitTypeId.LAIR).exists and not self.structures(
@@ -463,15 +463,15 @@ async def macro_element(self):
     if self.structures(UnitTypeId.LAIR).ready.exists:
         if not (self.structures(UnitTypeId.SPIRE).exists or self.already_pending(UnitTypeId.SPIRE)):
             if self.can_afford(UnitTypeId.SPIRE):
-                self.dronny = self.refresh_unit(self.dronny)
-                if not self.dronny or self.dronny is None:
-                    self.dronny = self.closest_unit(
+                dronny = self.refresh_unit(self.dronny_tag)
+                if not dronny or dronny is None:
+                    dronny = self.closest_unit(
                         [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
                         self.start_location)
-                dronny = self.dronny
+                    self.dronny_tag = dronny.tag
                 await self.build(UnitTypeId.SPIRE, build_worker=dronny, near=self.structures(UnitTypeId.SPAWNINGPOOL)[0])
-                if dronny not in self.building_workers:
-                    self.building_workers.append(dronny)
+                if dronny.tag not in self.building_workers_tags:
+                    self.building_workers_tags.append(dronny.tag)
 
     if self.structures(UnitTypeId.SPIRE).ready.exists:
         if self.units(UnitTypeId.LARVA).exists:
@@ -532,14 +532,14 @@ def has_expand_ramp(self):
 def accurate_attack(self, unit, attack_on_way=False):
     close_to_expand_ramp = get_distance(unit.position, self.two_enemy_ramps[1].top_center) < 2
     close_to_main_ramp = get_distance(unit.position, self.two_enemy_ramps[0].top_center) < 2
-    if unit not in self.expand_ramp_passed and self.expand_rump_exist:
+    if unit.tag not in self.expand_ramp_passed_tags and self.expand_rump_exist:
         target = self.two_enemy_ramps[1].top_center
         if close_to_expand_ramp:
-            self.expand_ramp_passed.append(unit)
-    elif unit not in self.main_ramp_passed:
+            self.expand_ramp_passed_tags.append(unit.tag)
+    elif unit.tag not in self.main_ramp_passed_tags:
         target = self.two_enemy_ramps[0].top_center
         if close_to_main_ramp:
-            self.main_ramp_passed.append(unit)
+            self.main_ramp_passed_tags.append(unit.tag)
     else:
         target = self.enemy_start_locations[0].position
 
