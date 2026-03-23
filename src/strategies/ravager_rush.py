@@ -34,7 +34,7 @@ class RavagerStrategy:
                 self.bot.action_registry.submit_action(
                     tag=roach.tag,
                     action=lambda r=roach: r(AbilityId.MORPHTORAVAGER_RAVAGER),
-                    priority=30,
+                    priority=ActionPriority.HIGH,
                     source="ravager_rush_morph"
                 )
                 available_minerals -= 25
