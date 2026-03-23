@@ -228,7 +228,7 @@ def main():
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
         Bot(Race.Zerg, SmallBly()),
         Computer(Race.Zerg, Difficulty.VeryHard),
-    ], realtime=False,
+    ], realtime=True,
              disable_fog=False,
              random_seed=0,
              # save_replay_as="smallBly_vs_smallBly_21-08-2025.SC2Replay",

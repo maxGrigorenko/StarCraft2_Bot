@@ -2,6 +2,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from .coordinate_functions import *
 from sc2.data import Race, ActionResult
 from sc2.ids.ability_id import AbilityId
+from src.managers.action_registry import ActionPriority
 import random
 
 
@@ -47,7 +48,13 @@ def get_locations(self):
 
 async def base_scout(self, unit, loc_n):
     locations = self.get_locations()
-    unit.attack(locations[loc_n])
+    target = locations[loc_n]
+    self.action_registry.submit_action(
+        tag=unit.tag,
+        action=lambda u=unit, t=target: u.attack(t),
+        priority=ActionPriority.LOW,
+        source="uf_base_scout"
+    )
 
 
 def is_units_health_max(self):
@@ -221,7 +228,12 @@ async def group_units(self, middle_unit, max_distance):
     medium_position = sc2.position.Point2((x / lp, y / lp))
 
     for unit in forces:
-        unit.move(medium_position)
+        self.action_registry.submit_action(
+            tag=unit.tag,
+            action=lambda u=unit, mp=medium_position: u.move(mp),
+            priority=ActionPriority.LOW,
+            source="uf_group_units"
+        )
 
 
 async def defending(self):
@@ -259,7 +271,16 @@ async def defending(self):
                 if unit is None:
                     continue
                 if unit.tag not in self.in_micro_tags:
-                    unit.attack(self.closest_unit(close_enemies, unit).position)
+                    closest = self.closest_unit(close_enemies, unit)
+                    if closest is None:
+                        continue
+                    target_pos = closest.position
+                    self.action_registry.submit_action(
+                        tag=unit.tag,
+                        action=lambda u=unit, t=target_pos: u.attack(t),
+                        priority=ActionPriority.NORMAL,
+                        source="uf_defending"
+                    )
 
             self.defence = True
 
@@ -288,7 +309,12 @@ async def micro_element(self):
         if not unit.weapon_ready:
             if unit.tag not in self.in_micro_tags:
                 self.in_micro_tags.append(unit.tag)
-            unit.gather(mineral_field)
+            self.action_registry.submit_action(
+                tag=unit.tag,
+                action=lambda u=unit, mf=mineral_field: u.gather(mf),
+                priority=ActionPriority.HIGH,
+                source="uf_micro_element_gather"
+            )
             if unit.tag not in self.go_back_points_tags:
                 self.go_back_points_tags.append(unit.tag)
 
@@ -298,7 +324,13 @@ async def micro_element(self):
                     self.go_back_points_tags.remove(unit.tag)
                 if unit.tag in self.in_micro_tags:
                     self.in_micro_tags.remove(unit.tag)
-                unit.attack(self.enemy_start_locations[0])
+                enemy_loc = self.enemy_start_locations[0]
+                self.action_registry.submit_action(
+                    tag=unit.tag,
+                    action=lambda u=unit, t=enemy_loc: u.attack(t),
+                    priority=ActionPriority.HIGH,
+                    source="uf_micro_element_attack"
+                )
 
 
 async def queen_management(self):
@@ -307,7 +339,13 @@ async def queen_management(self):
         bases_amount = self.structures(UnitTypeId.HATCHERY).amount + self.structures(UnitTypeId.LAIR).amount + self.structures(UnitTypeId.HIVE).amount
         if queen.is_idle and dist < 40:
             if queen.energy >= 25 and bases_amount > 0:
-                queen(AbilityId.EFFECT_INJECTLARVA, self.townhalls.first)
+                first_townhall = self.townhalls.first
+                self.action_registry.submit_action(
+                    tag=queen.tag,
+                    action=lambda q=queen, th=first_townhall: q(AbilityId.EFFECT_INJECTLARVA, th),
+                    priority=ActionPriority.HIGH,
+                    source="uf_queen_management_inject"
+                )
 
         '''
         for second_queen in self.units(UnitTypeId.QUEEN): 
@@ -331,8 +369,14 @@ def proxy(self):
         if get_distance(drone.position, self.start_location) > 100 and self.minerals >= 25:
             print("Building proxy")
             target = self.vespene_geyser.closest_to(drone.position)
-            drone.build(UnitTypeId.EXTRACTOR, target)
-            # Исправлено: используем building_workers_tags (список тегов) вместо building_workers
+            if target is None:
+                break
+            self.action_registry.submit_action(
+                tag=drone.tag,
+                action=lambda d=drone, t=target: d.build(UnitTypeId.EXTRACTOR, t),
+                priority=ActionPriority.NORMAL,
+                source="uf_proxy"
+            )
             if drone.tag not in self.building_workers_tags:
                 self.building_workers_tags.append(drone.tag)
             break
@@ -371,13 +415,25 @@ async def find_final_structures(self, forces, army):
         for enemy_struct in self.enemy_structures:
             for unit in forces:
                 if unit.tag not in self.home_dronny_tags and unit.is_idle:
-                    unit.attack(enemy_struct.position)
+                    target_pos = enemy_struct.position
+                    self.action_registry.submit_action(
+                        tag=unit.tag,
+                        action=lambda u=unit, t=target_pos: u.attack(t),
+                        priority=ActionPriority.NORMAL,
+                        source="uf_find_final_structures_attack_struct"
+                    )
             self.in_scout_tags.clear()
 
     elif len(self.enemy_units) > 0 and not self.all_flying_enemies():
+        enemy_pos = self.enemy_units[0].position
         for unit in forces:
             if unit.tag not in self.home_dronny_tags:
-                unit.attack(self.enemy_units[0].position)
+                self.action_registry.submit_action(
+                    tag=unit.tag,
+                    action=lambda u=unit, t=enemy_pos: u.attack(t),
+                    priority=ActionPriority.NORMAL,
+                    source="uf_find_final_structures_attack_unit"
+                )
         self.in_scout_tags.clear()
 
     else:
@@ -385,7 +441,13 @@ async def find_final_structures(self, forces, army):
         if self.enemy_structures.exists and self.units(UnitTypeId.QUEEN).exists:
             for queen in self.units(UnitTypeId.QUEEN):
                 if queen.is_idle:
-                    queen.attack(self.enemy_structures[0])
+                    enemy_struct = self.enemy_structures[0]
+                    self.action_registry.submit_action(
+                        tag=queen.tag,
+                        action=lambda q=queen, t=enemy_struct: q.attack(t),
+                        priority=ActionPriority.NORMAL,
+                        source="uf_find_final_structures_queen_attack"
+                    )
 
         if (not self.need_air_units) and (self.all_known_structures_flying()) and (
                 not self.units(UnitTypeId.MUTALISK).exists):
@@ -396,13 +458,28 @@ async def find_final_structures(self, forces, army):
             if len(self.enemy_structures) > 0:
                 for muta in self.units(UnitTypeId.MUTALISK):
                     if muta.is_idle:
-                        muta.attack(self.enemy_structures[0])
+                        enemy_struct = self.enemy_structures[0]
+                        self.action_registry.submit_action(
+                            tag=muta.tag,
+                            action=lambda m=muta, t=enemy_struct: m.attack(t),
+                            priority=ActionPriority.NORMAL,
+                            source="uf_find_final_structures_muta_attack"
+                        )
 
             else:
+                map_w = int(self.game_info.map_size[0])
+                map_h = int(self.game_info.map_size[1])
                 for unit in forces:
                     if unit.is_idle:
-                        unit.attack(sc2.position.Point2([random.randint(0, int(self.game_info.map_size[0])),
-                                                         random.randint(0, int(self.game_info.map_size[1]))]))
+                        rand_point = sc2.position.Point2(
+                            [random.randint(0, map_w), random.randint(0, map_h)]
+                        )
+                        self.action_registry.submit_action(
+                            tag=unit.tag,
+                            action=lambda u=unit, t=rand_point: u.attack(t),
+                            priority=ActionPriority.NORMAL,
+                            source="uf_find_final_structures_random_attack"
+                        )
 
 
 async def is_opponents_main_won(self):
@@ -432,17 +509,26 @@ async def macro_element(self):
 
             dronny = self.refresh_unit(self.dronny_tag)
             if not dronny or dronny is None:
-                dronny = self.closest_unit(
-                    [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
-                    self.start_location)
+                free_drones = [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
+                if not free_drones:
+                    return
+                dronny = self.closest_unit(free_drones, self.start_location)
                 self.dronny_tag = dronny.tag
 
+            if dronny is None:
+                return
+
             if self.can_afford(UnitTypeId.EXTRACTOR):
-                target = self.vespene_geyser.closest_to(
-                    dronny.position)
-                dronny.build(UnitTypeId.EXTRACTOR, target)
-                if dronny.tag not in self.building_workers_tags:
-                    self.building_workers_tags.append(dronny.tag)
+                target = self.vespene_geyser.closest_to(dronny.position)
+                if target is not None:
+                    self.action_registry.submit_action(
+                        tag=dronny.tag,
+                        action=lambda d=dronny, t=target: d.build(UnitTypeId.EXTRACTOR, t),
+                        priority=ActionPriority.NORMAL,
+                        source="uf_macro_element_build_extractor"
+                    )
+                    if dronny.tag not in self.building_workers_tags:
+                        self.building_workers_tags.append(dronny.tag)
                     return
 
     for extractor in self.structures(UnitTypeId.EXTRACTOR):
@@ -450,7 +536,12 @@ async def macro_element(self):
             w = self.workers.closer_than(6, extractor)
             if w.exists:
                 drone = w.random
-                drone.gather(extractor)
+                self.action_registry.submit_action(
+                    tag=drone.tag,
+                    action=lambda d=drone, e=extractor: d.gather(e),
+                    priority=ActionPriority.LOW,
+                    source="uf_macro_element_gather_gas"
+                )
                 if drone.tag not in self.drones_on_gas_tags:
                     self.drones_on_gas_tags.append(drone.tag)
 
@@ -458,26 +549,44 @@ async def macro_element(self):
         if not self.structures(UnitTypeId.LAIR).exists and not self.structures(
                 UnitTypeId.HIVE).exists and first_base.is_idle:
             if self.can_afford(UnitTypeId.LAIR):
-                first_base.build(UnitTypeId.LAIR)
+                self.action_registry.submit_action(
+                    tag=first_base.tag,
+                    action=lambda fb=first_base: fb.build(UnitTypeId.LAIR),
+                    priority=ActionPriority.NORMAL,
+                    source="uf_macro_element_build_lair"
+                )
 
     if self.structures(UnitTypeId.LAIR).ready.exists:
         if not (self.structures(UnitTypeId.SPIRE).exists or self.already_pending(UnitTypeId.SPIRE)):
             if self.can_afford(UnitTypeId.SPIRE):
                 dronny = self.refresh_unit(self.dronny_tag)
                 if not dronny or dronny is None:
-                    dronny = self.closest_unit(
-                        [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource],
-                        self.start_location)
+                    free_drones = [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
+                    if not free_drones:
+                        return
+                    dronny = self.closest_unit(free_drones, self.start_location)
                     self.dronny_tag = dronny.tag
-                await self.build(UnitTypeId.SPIRE, build_worker=dronny, near=self.structures(UnitTypeId.SPAWNINGPOOL)[0])
-                if dronny.tag not in self.building_workers_tags:
-                    self.building_workers_tags.append(dronny.tag)
+
+                if dronny is None:
+                    return
+
+                spawning_pool = self.structures(UnitTypeId.SPAWNINGPOOL)
+                if spawning_pool.exists:
+                    await self.build(UnitTypeId.SPIRE, build_worker=dronny,
+                                     near=spawning_pool[0])
+                    if dronny.tag not in self.building_workers_tags:
+                        self.building_workers_tags.append(dronny.tag)
 
     if self.structures(UnitTypeId.SPIRE).ready.exists:
         if self.units(UnitTypeId.LARVA).exists:
             larva = self.units(UnitTypeId.LARVA).random
             if self.can_afford(UnitTypeId.MUTALISK):
-                larva.train(UnitTypeId.MUTALISK)
+                self.action_registry.submit_action(
+                    tag=larva.tag,
+                    action=lambda l=larva: l.train(UnitTypeId.MUTALISK),
+                    priority=ActionPriority.NORMAL,
+                    source="uf_macro_element_train_mutalisk"
+                )
                 if not self.muta_tagged:
                     await self.chat_send(message="Tag:muta", team_only=True)
                     self.muta_tagged = True
@@ -490,13 +599,33 @@ def manage_queen_attack(self):
                 not (get_distance(queen.position, self.townhalls.first.position) < 8 and queen.energy >= 25):
             if self.enemy_units.exists:
                 closest_enemy = self.closest_enemy_unit(self.townhalls.first)
+                if closest_enemy is None:
+                    continue
                 if get_distance(closest_enemy.position, self.townhalls.first.position) < 14 and \
                         get_distance(closest_enemy.position, queen.position) < 20:
-                    queen.attack(closest_enemy.position)
+                    target_pos = closest_enemy.position
+                    self.action_registry.submit_action(
+                        tag=queen.tag,
+                        action=lambda q=queen, t=target_pos: q.attack(t),
+                        priority=ActionPriority.HIGH,
+                        source="uf_manage_queen_attack_close"
+                    )
                 else:
-                    queen.attack(self.enemy_start_locations[0])
+                    enemy_loc = self.enemy_start_locations[0]
+                    self.action_registry.submit_action(
+                        tag=queen.tag,
+                        action=lambda q=queen, t=enemy_loc: q.attack(t),
+                        priority=ActionPriority.NORMAL,
+                        source="uf_manage_queen_attack_main"
+                    )
             else:
-                queen.attack(self.enemy_start_locations[0])
+                enemy_loc = self.enemy_start_locations[0]
+                self.action_registry.submit_action(
+                    tag=queen.tag,
+                    action=lambda q=queen, t=enemy_loc: q.attack(t),
+                    priority=ActionPriority.NORMAL,
+                    source="uf_manage_queen_attack_no_enemies"
+                )
 
 
 def find_expand(self):
@@ -545,9 +674,19 @@ def accurate_attack(self, unit, attack_on_way=False):
 
     close_to_main = get_distance(unit.position, self.enemy_start_locations[0].position) < 3
     if attack_on_way or (close_to_expand_ramp and self.expand_rump_exist) or close_to_main_ramp or close_to_main:
-        unit.attack(target)
+        self.action_registry.submit_action(
+            tag=unit.tag,
+            action=lambda u=unit, t=target: u.attack(t),
+            priority=ActionPriority.NORMAL,
+            source="uf_accurate_attack_attack"
+        )
     else:
-        unit.move(target)
+        self.action_registry.submit_action(
+            tag=unit.tag,
+            action=lambda u=unit, t=target: u.move(t),
+            priority=ActionPriority.NORMAL,
+            source="uf_accurate_attack_move"
+        )
 
 
 def closest_unit_dist(self, unit, units):

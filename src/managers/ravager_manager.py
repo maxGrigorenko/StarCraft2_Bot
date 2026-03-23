@@ -2,6 +2,7 @@ from src.utils.coordinate_functions import go_from_point, go_towards_point, get_
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 from sc2.position import Point2
+from src.managers.action_registry import ActionPriority
 
 
 STATIC_DEFENSE_RANGES = {
@@ -215,7 +216,7 @@ class RavagerManager:
                 )
                 bot.action_registry.submit_action(tag=ravager.tag,
                                                   action=lambda r=ravager, p=safe_pos: r.move(p),
-                                                  priority=60,
+                                                  priority=ActionPriority.NORMAL,
                                                   source="RavagerManager")
                 handled = True
 

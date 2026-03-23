@@ -8,33 +8,35 @@ def assign_mining_positions(self):
                                  UnitTypeId.HIVE)))
 
     for hatchery in hatcheries:
-        for mineral_field in self.mining_hatchery_data[hatchery]:
-            for drone in self.mining_mineral_data[mineral_field]:
-                if drone in self.mining_drones:
+        for mineral_field in self.mining_hatchery_data.get(hatchery, []):
+            for drone_tag in self.mining_mineral_data.get(mineral_field, []):
+                if drone_tag in self.mining_drones_tags:
 
-                    if drone not in self.mining_drone_data.keys():
-                        self.mining_drone_data.update({drone: []})
+                    if drone_tag not in self.mining_drone_data:
+                        self.mining_drone_data[drone_tag] = []
 
-                    if len(self.mining_drone_data[drone]) == 0:
+                    if len(self.mining_drone_data[drone_tag]) == 0:
                         hatchery_position_mining, mineral_position_mining = find_mining_positions(hatchery, mineral_field)
-                        self.mining_drone_data[drone] = [hatchery_position_mining, mineral_position_mining]
+                        self.mining_drone_data[drone_tag] = [hatchery_position_mining, mineral_position_mining]
 
                 else:
-                    if drone in self.mining_drone_data.keys():
-                        del self.mining_drone_data[drone]
-                        self.mining_mineral_data[mineral_field].remove(drone)
+                    if drone_tag in self.mining_drone_data:
+                        del self.mining_drone_data[drone_tag]
+                    mineral_list = self.mining_mineral_data.get(mineral_field, [])
+                    if drone_tag in mineral_list:
+                        mineral_list.remove(drone_tag)
 
 
 def check_reorganization(self):
     mineral_filed_distances = dict(sorted(self.mineral_field_distances.items(), key=lambda x: x[1]))
-    all_drones = len(self.mining_drones)
+    all_drones = len(self.mining_drones_tags)
     used_drones = 0
 
     mineral_fields = list(mineral_filed_distances.keys())
 
     for i in range(len(mineral_fields)):
         mineral_field = mineral_fields[i]
-        drones = len(self.mining_mineral_data[mineral_field])
+        drones = len(self.mining_mineral_data.get(mineral_field, []))
         used_drones += drones
         free_drones = all_drones - used_drones
 
@@ -45,14 +47,14 @@ def check_reorganization(self):
                 field = mineral_fields[j]
                 for k in range(2):
                     if need_drones > 0 and free_drones > 0:
+                        field_drones = self.mining_mineral_data.get(field, [])
+                        if len(field_drones) > 0:
+                            drone_tag = field_drones[0]
+                            self.mining_mineral_data[mineral_field].append(drone_tag)
+                            field_drones.remove(drone_tag)
 
-                        if len(self.mining_mineral_data[field]) > 0:
-                            drone = self.mining_mineral_data[field][0]
-                            self.mining_mineral_data[mineral_field].append(drone)
-                            self.mining_mineral_data[field].remove(drone)
-
-                            if drone in self.mining_drone_data:
-                                del self.mining_drone_data[drone]
+                            if drone_tag in self.mining_drone_data:
+                                del self.mining_drone_data[drone_tag]
 
                             used_drones += 1
                             free_drones -= 1
@@ -66,43 +68,50 @@ def check_reorganization(self):
 
 def refresh_mining_data(self, drones):
     drones = drones.copy()
+    drone_tags = [d.tag for d in drones]
+
     all_mineral_fields = self.mineral_field
     hatcheries = list(filter(self.is_hatchery_for_mining, self.structures(UnitTypeId.HATCHERY) | self.structures(
         UnitTypeId.LAIR) | self.structures(UnitTypeId.HIVE)))
 
     for hatchery in hatcheries:
-        if hatchery not in self.mining_hatchery_data.keys():
-            self.mining_hatchery_data.update({hatchery: []})
+        if hatchery not in self.mining_hatchery_data:
+            self.mining_hatchery_data[hatchery] = []
 
     for mineral_field in all_mineral_fields:
         closest_hatchery = self.closest_unit(hatcheries, mineral_field)
         distance = get_distance(closest_hatchery.position, mineral_field.position)
 
-        if distance < 10 and mineral_field not in self.mining_mineral_data.keys():
-            self.mining_mineral_data.update({mineral_field: []})
-            self.mineral_field_distances.update({mineral_field: distance})
+        if distance < 10 and mineral_field not in self.mining_mineral_data:
+            self.mining_mineral_data[mineral_field] = []
+            self.mineral_field_distances[mineral_field] = distance
 
             if mineral_field not in self.mining_hatchery_data[closest_hatchery]:
                 self.mining_hatchery_data[closest_hatchery].append(mineral_field)
 
     mineral_filed_distances = dict(sorted(self.mineral_field_distances.items(), key=lambda x: x[1]))
 
-    for mineral_field in self.mining_mineral_data.keys():  # mineral_data.values() = [[drone1, drone2], [drone1, drone2], ...]
-        busy_drones_array = self.mining_mineral_data[mineral_field]
-        if len(busy_drones_array) > 0:
-            for busy_drone in busy_drones_array:
-                if busy_drone in drones:
-                    drones.remove(busy_drone)
-                else:
-                    self.mining_mineral_data[mineral_field].remove(busy_drone)
+    for mineral_field in list(self.mining_mineral_data.keys()):
+        busy_drone_tags = self.mining_mineral_data[mineral_field]
+        for drone_tag in busy_drone_tags[:]:
+            if drone_tag in drone_tags:
+                drone_obj = next((d for d in drones if d.tag == drone_tag), None)
+                if drone_obj is not None:
+                    drones.remove(drone_obj)
+            else:
+                busy_drone_tags.remove(drone_tag)
+                if drone_tag in self.mining_drone_data:
+                    del self.mining_drone_data[drone_tag]
 
-    for mineral_field in mineral_filed_distances.keys():  # [mineral1, mineral2, ...]
-        drones_quantity = len(self.mining_mineral_data[mineral_field])
+    for mineral_field in mineral_filed_distances.keys():
+        drones_quantity = len(self.mining_mineral_data.get(mineral_field, []))
         if drones_quantity < 2:
             for i in range(2 - drones_quantity):
                 if len(drones) > 0:
                     closest_drone = self.closest_unit(drones, mineral_field)
-                    self.mining_mineral_data[mineral_field].append(closest_drone)
+                    if closest_drone is None:
+                        break
+                    self.mining_mineral_data[mineral_field].append(closest_drone.tag)
                     drones.remove(closest_drone)
 
     self.check_reorganization()
@@ -130,7 +139,7 @@ def neighbor_mineral_fields(self, mineral_field):
     distances = {}
     for field in self.mineral_field:
         if field != mineral_field:
-            distances.update({field: get_distance(field.position, mineral_field.position)})
+            distances[field] = get_distance(field.position, mineral_field.position)
 
     mineral_filed_distances = dict(sorted(distances.items(), key=lambda x: x[1]))
     return list(mineral_filed_distances.keys())[0], list(mineral_filed_distances.keys())[1]
@@ -138,44 +147,54 @@ def neighbor_mineral_fields(self, mineral_field):
 
 async def speed_mining(self):
     drone_radius = 0.375
-    mineral_radius = 0.4  # around
+    mineral_radius = 0.4
     hatchery_radius = 2.75
-    r = 1.125  # mineral_field_radius
+    r = 1.125
 
     min_drone_mineral_distance = drone_radius + mineral_radius
     min_drone_hatchery_distance = drone_radius + self.townhalls.first.radius
 
-    for mineral_field in self.mining_mineral_data.keys():
-        for drone in self.mining_mineral_data[mineral_field]:
-            if drone in self.mining_drones:
+    for mineral_field in list(self.mining_mineral_data.keys()):
+        for drone_tag in self.mining_mineral_data[mineral_field]:
+            if drone_tag not in self.mining_drones_tags:
+                continue
 
-                drone = self.refresh_unit(drone)
-                hatchery = self.closest_unit(
-                    self.structures(UnitTypeId.HATCHERY) | self.structures(UnitTypeId.LAIR) | self.structures(
-                        UnitTypeId.HIVE), drone)
-                distance_to_hatch = get_distance(drone.position, hatchery.position)
-                distance_to_mineral = get_distance(drone.position, mineral_field.position)
-                mineral_hatch_distance = get_distance(hatchery.position, mineral_field.position)
+            drone = self.refresh_unit(drone_tag)
+            if drone is None:
+                continue
 
-                if drone.is_carrying_resource:
+            hatchery = self.closest_unit(
+                self.structures(UnitTypeId.HATCHERY) | self.structures(UnitTypeId.LAIR) | self.structures(
+                    UnitTypeId.HIVE), drone)
+            if hatchery is None:
+                continue
 
-                    if distance_to_hatch > min_drone_hatchery_distance + 1:
-                        position = self.mining_drone_data[drone][0]
-                        drone.move(position)
+            distance_to_hatch = get_distance(drone.position, hatchery.position)
+            distance_to_mineral = get_distance(drone.position, mineral_field.position)
+            mineral_hatch_distance = get_distance(hatchery.position, mineral_field.position)
+
+            mining_positions = self.mining_drone_data.get(drone_tag, [])
+
+            if drone.is_carrying_resource:
+                if distance_to_hatch > min_drone_hatchery_distance + 1:
+                    if len(mining_positions) >= 1:
+                        hatch_pos = mining_positions[0]
+                        drone.move(hatch_pos)
                         drone.return_resource(queue=True)
-
                     else:
                         drone.return_resource()
-                        drone.gather(mineral_field, queue=True)
-
                 else:
-
-                    if not (mineral_hatch_distance > 6.9 and len(self.mining_mineral_data[
-                                                                     mineral_field]) == 2) and distance_to_mineral > min_drone_mineral_distance + 1:
-                        position = self.mining_drone_data[drone][1]
-                        drone.move(position)
+                    drone.return_resource()
+                    drone.gather(mineral_field, queue=True)
+            else:
+                if not (mineral_hatch_distance > 6.9 and len(
+                        self.mining_mineral_data[mineral_field]) == 2) and distance_to_mineral > min_drone_mineral_distance + 1:
+                    if len(mining_positions) >= 2:
+                        mineral_pos = mining_positions[1]
+                        drone.move(mineral_pos)
                         drone.gather(mineral_field, queue=True)
-
                     else:
                         drone.gather(mineral_field)
-                        drone.return_resource(queue=True)
+                else:
+                    drone.gather(mineral_field)
+                    drone.return_resource(queue=True)

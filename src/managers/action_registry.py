@@ -1,5 +1,13 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+from enum import IntEnum
+
+
+class ActionPriority(IntEnum):
+    CRITICAL = 100
+    HIGH = 80
+    NORMAL = 50
+    LOW = 20
 
 
 @dataclass
