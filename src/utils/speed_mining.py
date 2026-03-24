@@ -1,5 +1,6 @@
 from sc2.ids.unit_typeid import UnitTypeId
 from .coordinate_functions import *
+from src.managers.action_registry import ActionPriority
 
 
 def assign_mining_positions(self):
@@ -179,22 +180,66 @@ async def speed_mining(self):
                 if distance_to_hatch > min_drone_hatchery_distance + 1:
                     if len(mining_positions) >= 1:
                         hatch_pos = mining_positions[0]
-                        drone.move(hatch_pos)
-                        drone.return_resource(queue=True)
+                        self.action_registry.submit_action(
+                            drone_tag,
+                            lambda d=drone, hp=hatch_pos: d.move(hp),
+                            ActionPriority.LOW,
+                            "speed_mining"
+                        )
+                        self.action_registry.submit_action(
+                            drone_tag,
+                            lambda d=drone, hp=hatch_pos, mf=mineral_field: (
+                                d.move(hp),
+                                d.return_resource(queue=True)
+                            ),
+                            ActionPriority.LOW,
+                            "speed_mining"
+                        )
                     else:
-                        drone.return_resource()
+                        self.action_registry.submit_action(
+                            drone_tag,
+                            lambda d=drone: d.return_resource(),
+                            ActionPriority.LOW,
+                            "speed_mining"
+                        )
                 else:
-                    drone.return_resource()
-                    drone.gather(mineral_field, queue=True)
+                    self.action_registry.submit_action(
+                        drone_tag,
+                        lambda d=drone, mf=mineral_field: (
+                            d.return_resource(),
+                            d.gather(mf, queue=True)
+                        ),
+                        ActionPriority.LOW,
+                        "speed_mining"
+                    )
             else:
                 if not (mineral_hatch_distance > 6.9 and len(
                         self.mining_mineral_data[mineral_field]) == 2) and distance_to_mineral > min_drone_mineral_distance + 1:
                     if len(mining_positions) >= 2:
                         mineral_pos = mining_positions[1]
-                        drone.move(mineral_pos)
-                        drone.gather(mineral_field, queue=True)
+                        self.action_registry.submit_action(
+                            drone_tag,
+                            lambda d=drone, mp=mineral_pos, mf=mineral_field: (
+                                d.move(mp),
+                                d.gather(mf, queue=True)
+                            ),
+                            ActionPriority.LOW,
+                            "speed_mining"
+                        )
                     else:
-                        drone.gather(mineral_field)
+                        self.action_registry.submit_action(
+                            drone_tag,
+                            lambda d=drone, mf=mineral_field: d.gather(mf),
+                            ActionPriority.LOW,
+                            "speed_mining"
+                        )
                 else:
-                    drone.gather(mineral_field)
-                    drone.return_resource(queue=True)
+                    self.action_registry.submit_action(
+                        drone_tag,
+                        lambda d=drone, mf=mineral_field: (
+                            d.gather(mf),
+                            d.return_resource(queue=True)
+                        ),
+                        ActionPriority.LOW,
+                        "speed_mining"
+                    )
