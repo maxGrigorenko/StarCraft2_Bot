@@ -88,7 +88,7 @@ class SmallBly(BotAI):
         map_scout, need_group, group_units, defending, micro_element, queen_management, \
         no_units_in_opponent_main, proxy, mining_iteration, find_final_structures, \
         is_opponents_main_won, manage_queen_attack, find_expand, has_expand_ramp, \
-        accurate_attack, closest_unit_dist, air_danger_units, macro_element
+        accurate_attack, closest_unit_dist, air_danger_units, macro_element, check_drones_on_gas
 
     def __init__(self):
         super().__init__()
@@ -145,7 +145,7 @@ class SmallBly(BotAI):
     def read_and_choose_strategy(self):
         opponent_id = self.opponent_id
         if opponent_id is None:
-            self.strategy = StrategyID.RAVAGER_RUSH
+            self.strategy = StrategyID.ROACH_RUSH
             return
 
         with open("data/statistics.txt") as f:
@@ -224,11 +224,11 @@ class SmallBly(BotAI):
 
 def main():
     run_game(sc2.maps.get("TorchesAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        # Human(Race.Protoss),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+        # Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
         Bot(Race.Zerg, SmallBly()),
-        Computer(Race.Zerg, Difficulty.VeryHard),
-    ], realtime=True,
+        Computer(Race.Protoss, Difficulty.VeryHard),
+    ], realtime=False,
              disable_fog=False,
              random_seed=0,
              # save_replay_as="smallBly_vs_smallBly_21-08-2025.SC2Replay",
