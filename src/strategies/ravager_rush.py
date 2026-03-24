@@ -1,11 +1,10 @@
-from sc2.units import Units
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.ids.ability_id import AbilityId
 from src.utils.coordinate_functions import *
 from sc2.data import Race, ActionResult
-from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
-from src.utils.universal_functions import *
-from src.utils.speed_mining import *
+from src.managers.action_registry import ActionPriority
+from src.utils.coordinate_functions import get_distance
 
 
 class RavagerStrategy:

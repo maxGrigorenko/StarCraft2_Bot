@@ -1,6 +1,7 @@
 from sc2.ids.upgrade_id import UpgradeId
-from src.utils.universal_functions import *
-from src.utils.speed_mining import *
+from sc2.ids.ability_id import AbilityId
+from sc2.ids.unit_typeid import UnitTypeId
+from sc2.data import Race
 from src.managers.ravager_manager import find_closest_enemy, calculate_retreat_position
 from src.managers.action_registry import ActionPriority
 from src.utils.coordinate_functions import get_distance
@@ -14,7 +15,6 @@ class RoachStrategy:
         if UpgradeId.BURROW not in self.bot.state.upgrades:
             return
 
-        # Обновляем список тегов зарытых юнитов (только живые роучи с низким HP)
         self.bot.in_burrow_process_tags = [
             roach.tag for roach in self.bot.units(UnitTypeId.ROACH) if roach.health <= 54
         ]
@@ -188,9 +188,7 @@ class RoachStrategy:
                     (self.bot.time < 70 and self.bot.supply_used < 14) or self.bot.structures(UnitTypeId.ROACHWARREN).ready.exists):
                 self.bot.train(UnitTypeId.DRONE)
 
-        # Извлекаем dronny по тегу (безопасно)
         dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
-
         if not dronny:
             drones_without_minerals = [unit for unit in self.bot.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
             if len(drones_without_minerals) >= 1:
@@ -201,7 +199,6 @@ class RoachStrategy:
         # BUILDING SPAWNING POOL
 
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount + self.bot.already_pending(UnitTypeId.SPAWNINGPOOL) == 0:
-            # Безопасно обновляем dronny по тегу
             dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
             distance = 8
             if self.bot.time < 70 and dronny is not None:
@@ -248,7 +245,6 @@ class RoachStrategy:
 
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
                 (self.bot.structures(UnitTypeId.EXTRACTOR).amount + self.bot.already_pending(UnitTypeId.EXTRACTOR) == 0):
-            # Безопасно обновляем dronny по тегу
             dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
             if self.bot.can_afford(UnitTypeId.EXTRACTOR) and dronny is not None:
                 target = self.bot.vespene_geyser.closest_to(dronny.position)
@@ -267,7 +263,6 @@ class RoachStrategy:
                 w = self.bot.workers.closer_than(6, extractor)
                 if w.exists:
                     drone = w.random
-                    # Сравниваем по тегу, а не по объекту
                     if drone.tag != self.bot.dronny_tag:
                         self.bot.action_registry.submit_action(
                             tag=drone.tag,
@@ -282,7 +277,6 @@ class RoachStrategy:
 
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
                 (self.bot.structures(UnitTypeId.ROACHWARREN).amount + self.bot.already_pending(UnitTypeId.ROACHWARREN) == 0):
-            # Безопасно обновляем dronny по тегу
             dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
             if not dronny:
                 drones_without_minerals = [unit for unit in self.bot.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
@@ -384,9 +378,7 @@ class RoachStrategy:
                 not self.bot.no_units_in_opponent_main() and self.bot.time > 100)) and self.bot.need_to_attack_main_base:
 
             for unit in forces:
-                # Проверяем по тегу, является ли юнит "зарытым" (in_burrow_process_tags)
                 if unit.tag not in self.bot.in_burrow_process_tags:
-                    # Очищаем known_enemy_u от мёртвых юнитов
                     for unit_in_known in list(self.bot.known_enemy_u):
                         if unit_in_known not in self.bot.enemy_units:
                             self.bot.known_enemy_u.remove(unit_in_known)
