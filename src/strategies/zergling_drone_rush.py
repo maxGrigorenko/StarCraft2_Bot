@@ -351,7 +351,7 @@ class ZerglingDroneStrategy:
     
         # BUILDING DRONES
     
-        if len(self.bot.mining_drones) < first_base.ideal_harvesters and (self.bot.need_air_units or not self.bot.stop_drone) and not self.bot.defence:
+        if len(self.bot.mining_drones_tags) < first_base.ideal_harvesters and (self.bot.need_air_units or not self.bot.stop_drone) and not self.bot.defence:
             if self.bot.can_afford(UnitTypeId.DRONE) and larvae.exists:
                 larva = larvae.random
                 self.bot.action_registry.submit_action(
@@ -431,7 +431,7 @@ class ZerglingDroneStrategy:
                 await self.bot.macro_element()
                 # return
     
-            if len(self.bot.mining_drones) < self.bot.units(UnitTypeId.DRONE).amount - 5:
+            if len(self.bot.mining_drones_tags) < self.bot.units(UnitTypeId.DRONE).amount - 5:
                 self.bot.home_dronny = Units([], self.bot)
     
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and not self.bot.stop_zergling:
@@ -448,7 +448,7 @@ class ZerglingDroneStrategy:
             if first_base.is_idle:  # (self.bot.minerals >= 300 or (self.bot.minerals >= 200 and self.bot.units(UnitTypeId.ZERGLING).amount >= 6))
     
                 larvae_amount = larvae.amount
-                if len(self.bot.mining_drones) >= 10:
+                if len(self.bot.mining_drones_tags) >= 10:
                     min_minerals = 150 + larvae_amount * 50
                 else:
                     min_minerals = 200 + larvae_amount * 50
