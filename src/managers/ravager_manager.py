@@ -131,12 +131,15 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
     return best_target
 
 
-def get_priority_structures(enemy_structures):
-    """Get static defense structures that are priority targets."""
+def get_priority_targets(enemy_structures, enemy_units):
+    """Get static defense structures and burrowed enemy units that are priority targets."""
     result = []
     for s in enemy_structures:
         if s.type_id in STATIC_DEFENSE_RANGES or s.type_id == UnitTypeId.PYLON:
             result.append(s)
+    for u in enemy_units:
+        if u.is_burrowed:  # needs detection :(
+            result.append(u)
     return result
 
 
@@ -178,7 +181,7 @@ class RavagerManager:
 
         handled_tags = set()
         dangerous_structures = get_dangerous_structures(enemy_structures)
-        priority_targets = get_priority_structures(enemy_structures)
+        priority_targets = get_priority_targets(enemy_structures, enemy_units)
 
         other_bile_targets = []
         for s in enemy_structures:
