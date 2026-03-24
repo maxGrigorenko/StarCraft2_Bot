@@ -382,11 +382,21 @@ def proxy(self):
             break
 
 
+def check_drones_on_gas(self):
+    for drone_tag in self.drones_on_gas_tags:
+        drone = self.units.find_by_tag(drone_tag)
+        if drone is not None and drone.is_idle:
+            self.drones_on_gas_tags.remove(drone_tag)
+
+
 async def mining_iteration(self):
     bases = self.structures(UnitTypeId.HATCHERY) | self.structures(UnitTypeId.LAIR) | self.structures(
         UnitTypeId.HIVE)
     bases_amount = self.structures(UnitTypeId.HATCHERY).amount + self.structures(
         UnitTypeId.LAIR).amount + self.structures(UnitTypeId.HIVE).amount
+
+    if len(self.drones_on_gas_tags) > 0:
+        self.check_drones_on_gas()
 
     if self.units(UnitTypeId.DRONE).amount > 0 and bases_amount > 0 and self.mineral_field.amount > 0:
 
