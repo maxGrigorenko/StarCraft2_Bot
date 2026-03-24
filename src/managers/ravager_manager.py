@@ -76,7 +76,7 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
         if hasattr(target, 'type_id'):
             if target.type_id == UnitTypeId.SIEGETANKSIEGED:
                 d = get_distance(ravager.position, target.position)
-                if d <= BILE_RANGE + 1.0 and d < best_sieged_dist:
+                if d <= BILE_RANGE + 3.0 and d < best_sieged_dist:
                     target_pos = target.position
                     safe = True
                     for unit in own_units:
@@ -96,7 +96,7 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
 
     for target in priority_targets:
         d = get_distance(ravager.position, target.position)
-        if d <= BILE_RANGE and d < best_dist:
+        if d <= BILE_RANGE + 3.0 and d < best_dist:
             target_pos = target.position
             safe = True
             for unit in own_units:
@@ -135,7 +135,7 @@ def get_priority_structures(enemy_structures):
     """Get static defense structures that are priority targets."""
     result = []
     for s in enemy_structures:
-        if s.type_id in STATIC_DEFENSE_RANGES:
+        if s.type_id in STATIC_DEFENSE_RANGES or s.type_id == UnitTypeId.PYLON:
             result.append(s)
     return result
 
@@ -185,7 +185,8 @@ class RavagerManager:
             if s not in priority_targets:
                 other_bile_targets.append(s)
 
-        ground_enemies = [u for u in enemy_units if not u.is_flying and not u.is_hallucination]
+        real_enemies = [u for u in enemy_units if not u.is_hallucination]
+        ground_enemies = [u for u in real_enemies if not u.is_flying]
 
         # Manage Ravagers
         for ravager in ravagers:
@@ -221,12 +222,12 @@ class RavagerManager:
                 handled = True
 
             # 2. BILE CASTING (Can cast if safe, i.e., >= 8.0)
-            if not handled and (len(priority_targets) > 0 or len(other_bile_targets) > 0 or len(ground_enemies) > 0):
+            if not handled and (len(priority_targets) > 0 or len(other_bile_targets) > 0 or len(real_enemies) > 0):
                 own_units = list(ravagers) + list(roaches)
-                bile_target = find_bile_target(ravager, priority_targets, other_bile_targets + ground_enemies, own_units)
+                bile_target = find_bile_target(ravager, priority_targets, other_bile_targets + real_enemies, own_units)
                 if bile_target is not None:
                     if can_cast_bile:
-                        if get_distance(ravager.position, bile_target.position) < 6:
+                        if get_distance(ravager.position, bile_target.position) < (BILE_RANGE - 1):
                             bile_position = bile_target.position
                         else:
                             bile_position = go_towards_point(unit_position=bile_target.position, target_position=ravager.position, dist=bile_target.radius+0.2)
@@ -241,7 +242,7 @@ class RavagerManager:
                         if safe_cast:
                             bot.action_registry.submit_action(tag=ravager.tag,
                                                               action=lambda r=ravager, ab=AbilityId.EFFECT_CORROSIVEBILE, p=bile_position: r(ab, p),
-                                                              priority=80,
+                                                              priority=ActionPriority.HIGH+1,
                                                               source="RavagerManager")
                             handled = True
 
@@ -250,11 +251,11 @@ class RavagerManager:
                 closest_enemy = find_closest_enemy(ravager, ground_enemies)
                 if closest_enemy is not None:
                     dist_to_enemy = get_distance(ravager.position, closest_enemy.position)
-                    if dist_to_enemy < 8:
+                    if dist_to_enemy < 7.5:
                         if ravager.weapon_ready:
                             bot.action_registry.submit_action(tag=ravager.tag,
                                                               action=lambda r=ravager, t=closest_enemy.position: r.attack(t),
-                                                              priority=40,
+                                                              priority=ActionPriority.NORMAL,
                                                               source="RavagerManager")
                         else:
                             retreat_pos = calculate_retreat_position(
@@ -262,21 +263,23 @@ class RavagerManager:
                             )
                             bot.action_registry.submit_action(tag=ravager.tag,
                                                               action=lambda r=ravager, p=retreat_pos: r.move(p),
-                                                              priority=60,
+                                                              priority=ActionPriority.NORMAL,
                                                               source="RavagerManager")
                         handled = True
 
             # 4. Wait safely outside danger zone (prevent macro from walking into cannons)
-            critic_distance = 12.0
+            critic_distance = 10.0
+            if ravager.health < ravager.health_max * 0.6:
+                critic_distance = 15.0
             if can_cast_bile:
                 critic_distance = 8.5
-                if (closest_danger is not None) and (not closest_danger.is_visible):
+                if (closest_danger is not None) and (not closest_danger.is_visible) and (ravager.health > ravager.health_max * 0.7):
                     critic_distance = 3.0
 
             if (not handled) and (closest_danger is not None) and (min_danger_dist < critic_distance):
                 bot.action_registry.submit_action(tag=ravager.tag,
                                                   action=lambda r=ravager: r.stop(),
-                                                  priority=30,
+                                                  priority=ActionPriority.HIGH,
                                                   source="RavagerManager")
                 handled = True
 
@@ -304,7 +307,7 @@ class RavagerManager:
                 )
                 bot.action_registry.submit_action(tag=roach.tag,
                                                   action=lambda r=roach, p=safe_pos: r.move(p),
-                                                  priority=60,
+                                                  priority=ActionPriority.HIGH,
                                                   source="RavagerManager")
                 handled = True
 
@@ -316,7 +319,7 @@ class RavagerManager:
                         if roach.weapon_ready:
                             bot.action_registry.submit_action(tag=roach.tag,
                                                               action=lambda r=roach, t=closest_enemy.position: r.attack(t),
-                                                              priority=40,
+                                                              priority=ActionPriority.NORMAL+1,
                                                               source="RavagerManager")
                         else:
                             retreat_pos = calculate_retreat_position(
@@ -324,7 +327,7 @@ class RavagerManager:
                             )
                             bot.action_registry.submit_action(tag=roach.tag,
                                                               action=lambda r=roach, p=retreat_pos: r.move(p),
-                                                              priority=60,
+                                                              priority=ActionPriority.NORMAL+1,
                                                               source="RavagerManager")
                         handled = True
 
@@ -332,7 +335,7 @@ class RavagerManager:
             if not handled and closest_danger is not None and min_danger_dist < 15.0:
                 bot.action_registry.submit_action(tag=roach.tag,
                                                   action=lambda r=roach: r.stop(),
-                                                  priority=30,
+                                                  priority=ActionPriority.NORMAL,
                                                   source="RavagerManager")
                 handled = True
 
