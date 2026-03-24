@@ -1,8 +1,10 @@
+from sc2.ids.effect_id import EffectId
 from sc2.ids.unit_typeid import UnitTypeId
 from .coordinate_functions import *
 from sc2.data import Race, ActionResult
 from sc2.ids.ability_id import AbilityId
 from src.managers.action_registry import ActionPriority
+from sc2.position import Point2
 import random
 
 
@@ -704,3 +706,42 @@ def closest_unit_dist(self, unit, units):
     for structure in units:
         d = min(d, get_distance(unit.position, structure.position))
     return d
+
+
+def dodge_corrosive_bile(self):
+    BILE_DODGE_RADIUS = 5.0
+
+    for effect in self.state.effects:
+        if effect.id != EffectId.RAVAGERCORROSIVEBILECP:
+            continue
+
+        for bile_position in effect.positions:
+            bile_point = Point2(bile_position)
+
+            units_in_range = self.units.filter(
+                lambda u: u.distance_to(bile_point) <= BILE_DODGE_RADIUS
+            )
+
+            for unit in units_in_range:
+                tag = unit.tag
+
+                if unit.is_burrowed:
+                    self.action_registry.submit_action(
+                        tag=tag,
+                        action=lambda u=unit: u(AbilityId.BURROWUP),
+                        priority=ActionPriority.CRITICAL,
+                        source="dodge_corrosive_bile_unburrow"
+                    )
+                    continue
+
+                retreat_point = go_from_point(unit_position=unit.position,
+                                              dangerous_position=bile_position,
+                                              dist=2)
+
+                self.action_registry.submit_action(
+                    tag=tag,
+                    action=lambda u=unit, p=retreat_point: u.move(p),
+                    priority=ActionPriority.CRITICAL,
+                    source="dodge_corrosive_bile"
+                )
+

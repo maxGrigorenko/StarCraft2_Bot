@@ -5,7 +5,7 @@ import math
 
 from src.managers.overlord_manager import OverlordManager
 from src.managers.ravager_manager import RavagerManager
-from src.managers.action_registry import ActionRegistry
+from src.managers.action_registry import ActionRegistry, ActionPriority
 from src.utils.coordinate_functions import *
 from src.strategies.roach_rush import RoachStrategy
 from src.strategies.ravager_rush import RavagerStrategy
@@ -88,7 +88,7 @@ class SmallBly(BotAI):
         map_scout, need_group, group_units, defending, micro_element, queen_management, \
         no_units_in_opponent_main, proxy, mining_iteration, find_final_structures, \
         is_opponents_main_won, manage_queen_attack, find_expand, has_expand_ramp, \
-        accurate_attack, closest_unit_dist, air_danger_units, macro_element, check_drones_on_gas
+        accurate_attack, closest_unit_dist, air_danger_units, macro_element, check_drones_on_gas, dodge_corrosive_bile
 
     def __init__(self):
         super().__init__()
@@ -145,7 +145,7 @@ class SmallBly(BotAI):
     def read_and_choose_strategy(self):
         opponent_id = self.opponent_id
         if opponent_id is None:
-            self.strategy = StrategyID.ROACH_RUSH
+            self.strategy = StrategyID.RAVAGER_RUSH
             return
 
         with open("data/statistics.txt") as f:
@@ -217,17 +217,19 @@ class SmallBly(BotAI):
         elif self.strategy == StrategyID.RAVAGER_RUSH:
             await self.ravager_strategy.ravager_rush_step(iteration=iteration)
 
+        self.dodge_corrosive_bile()
+
         for action_func in self.action_registry.resolve():
             action_func()
         self.action_registry.clear()
 
 
 def main():
-    run_game(sc2.maps.get("TorchesAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        # Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+    run_game(sc2.maps.get("2000AtmospheresAIE"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
+        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
         Bot(Race.Zerg, SmallBly()),
-        Computer(Race.Protoss, Difficulty.VeryHard),
+        # Computer(Race.Protoss, Difficulty.VeryHard),
     ], realtime=False,
              disable_fog=False,
              random_seed=0,
