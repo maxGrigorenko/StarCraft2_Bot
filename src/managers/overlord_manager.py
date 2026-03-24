@@ -2,6 +2,7 @@ from attr import dataclass
 from typing import Any
 import enum
 from src.utils.coordinate_functions import go_from_point, go_towards_point, get_distance
+from sc2.ids.unit_typeid import UnitTypeId
 import sc2.unit
 import sc2.position
 from sc2.data import Race
@@ -75,7 +76,8 @@ class OverlordManager:
                 self.tags_positions.append(OverlordPosition(position=position, overlord_tag=None))
 
     def assign_positions(self, overlords):
-        free_overlord_tags = [overlord_tag for overlord_tag in self.overlord_tags if overlord_tag not in self.busy_overlords]
+        free_overlord_tags = [overlord_tag for overlord_tag in self.overlord_tags if
+                              overlord_tag not in self.busy_overlords]
         if len(free_overlord_tags) == 0:
             return
 
@@ -91,7 +93,24 @@ class OverlordManager:
             if len(free_overlord_tags) == 0:
                 return
 
-    async def manage(self, overlords, enemies):
+    def _is_near_enemy_base(self, position, threshold=30):
+        return get_distance(position, self.enemy_start_location) < threshold
+
+    def _has_own_units_nearby(self, position, own_units, threshold=30):
+        for unit in own_units:
+            if get_distance(unit.position, position) < threshold:
+                return True
+        return False
+
+    async def manage(self, overlords, enemies, own_units=None):
+        if own_units is None:
+            own_units = []
+
+        if self.bot is not None:
+            own_units = (self.bot.units(UnitTypeId.DRONE) | self.bot.units(UnitTypeId.ZERGLING) |
+                         self.bot.units(UnitTypeId.ROACH) | self.bot.units(UnitTypeId.RAVAGER) |
+                         self.bot.units(UnitTypeId.MUTALISK))
+
         for tag in overlords.tags:
             if tag not in self.overlord_tags:
                 self.add_tag(tag)
@@ -128,13 +147,19 @@ class OverlordManager:
                                                 unit_position=overlord.position,
                                                 dist=1)
                     self.bot.action_registry.submit_action(tag=overlord.tag,
-                                           action=lambda o=overlord, p=retreat_pos: o.move(p),
-                                           priority=50,
-                                           source="OverlordManager")
+                                                           action=lambda o=overlord, p=retreat_pos: o.move(p),
+                                                           priority=50,
+                                                           source="OverlordManager")
                     continue
+
+            if self._is_near_enemy_base(position):
+                if not self._has_own_units_nearby(position, own_units):
+                    position = go_towards_point(unit_position=position,
+                                                target_position=self.own_start_location,
+                                                dist=10)
+
             if overlord.health > overlord.health_max * 0.6 and get_distance(overlord.position, position) > 0.1:
                 self.bot.action_registry.submit_action(tag=overlord.tag,
-                                       action=lambda o=overlord, p=position: o.move(p),
-                                       priority=50,
-                                       source="OverlordManager")
-
+                                                       action=lambda o=overlord, p=position: o.move(p),
+                                                       priority=50,
+                                                       source="OverlordManager")
