@@ -76,17 +76,9 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
         if hasattr(target, 'type_id'):
             if target.type_id == UnitTypeId.SIEGETANKSIEGED:
                 d = get_distance(ravager.position, target.position)
-                if d <= BILE_RANGE + 3.0 and d < best_sieged_dist:
-                    target_pos = target.position
-                    safe = True
-                    for unit in own_units:
-                        dist_to_unit = get_distance(target_pos, unit.position)
-                        if dist_to_unit <= unit.radius + 0.5:
-                            safe = False
-                            break
-                    if safe:
-                        best_sieged_dist = d
-                        best_sieged_tank = target
+                if d <= BILE_RANGE + 4.0 and d < best_sieged_dist:
+                    best_sieged_dist = d
+                    best_sieged_tank = target
 
     if best_sieged_tank is not None:
         return best_sieged_tank
@@ -96,17 +88,9 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units):
 
     for target in priority_targets:
         d = get_distance(ravager.position, target.position)
-        if d <= BILE_RANGE + 3.0 and d < best_dist:
-            target_pos = target.position
-            safe = True
-            for unit in own_units:
-                dist_to_unit = get_distance(target_pos, unit.position)
-                if dist_to_unit <= unit.radius + 2.0:
-                    safe = False
-                    break
-            if safe:
-                best_dist = d
-                best_target = target
+        if d <= BILE_RANGE + 3.5 and d < best_dist:
+            best_dist = d
+            best_target = target
 
     if best_target is not None:
         return best_target
@@ -258,11 +242,11 @@ class RavagerManager:
                 if closest_enemy is not None:
                     danger_dist = 7.0
                     if ravager_critical_health:
-                        danger_dist = 12.0
+                        danger_dist = 15.0
                     elif ravager_low_health:
-                        danger_dist = 10.0
+                        danger_dist = 11.0
                     elif ravager_normal_health:
-                        danger_dist = 8.0
+                        danger_dist = 8.5
                     dist_to_enemy = get_distance(ravager.position, closest_enemy.position)
                     if dist_to_enemy < danger_dist:
                         if ravager.weapon_ready:
@@ -276,7 +260,7 @@ class RavagerManager:
                             )
                             bot.action_registry.submit_action(tag=ravager.tag,
                                                               action=lambda r=ravager, p=retreat_pos: r.move(p),
-                                                              priority=ActionPriority.HIGH,
+                                                              priority=ActionPriority.HIGH+1,
                                                               source="RavagerManager")
                         handled = True
 
@@ -293,7 +277,7 @@ class RavagerManager:
                 elif not ravager_critical_health:
                     critic_distance = 8.5
                 else:
-                    critic_distance = 9.0
+                    critic_distance = 12.0
 
                 if (closest_danger is not None) and (not closest_danger.is_visible) and (not ravager_normal_health):
                     critic_distance = 3.0
