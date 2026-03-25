@@ -338,22 +338,15 @@ class RavagerStrategy:
                                 not enemy_unit.is_flying):
                             self.bot.known_enemy_u.append(enemy_unit)
 
-                    need_to_run_deep = ((self.bot.time < 180) and
-                                        (self.bot.closest_unit_dist(unit=unit, units=dangerous_structures) < 15) and
-                                        (get_distance(unit.position,
-                                                      self.bot.enemy_start_locations[0].position) > 8) and
-                                        (self.bot.units(UnitTypeId.RAVAGER).amount < 3))
-
                     if (len(self.bot.known_enemy_u) > 0 and
                             (enemy_is_close or enemy_near_home_and_unit) and
                             (not closest_enemy_to_base.is_flying) and
                             (self.bot.time > 120 or self.bot.closest_unit_dist(unit=unit,
-                                                                               units=dangerous_structures) > 10) and
-                            (not need_to_run_deep)):
+                                                                               units=dangerous_structures) > 10)):
                         self.bot.action_registry.submit_action(
                             tag=unit.tag,
                             action=lambda u=unit, t=closest_enemy_to_base.position: u.attack(t),
-                            priority=50,
+                            priority=ActionPriority.HIGH-1,
                             source="ravager_rush_attack_enemy"
                         )
 
@@ -361,19 +354,15 @@ class RavagerStrategy:
                         self.bot.action_registry.submit_action(
                             tag=unit.tag,
                             action=lambda u=unit, t=self.bot.enemy_start_locations[0]: u.attack(t),
-                            priority=50,
+                            priority=ActionPriority.NORMAL,
                             source="ravager_rush_attack_start_loc"
                         )
 
-                    elif ((unit.health_max - unit.health > 0) and
-                          not need_to_run_deep):
-                        self.bot.accurate_attack(unit, attack_on_way=True)
-
                     else:
-                        self.bot.accurate_attack(unit, attack_on_way=False)
+                        self.bot.accurate_attack(unit, need_additional_attack_command=False)
 
                 else:
-                    self.bot.accurate_attack(unit, attack_on_way=False)
+                    self.bot.accurate_attack(unit, need_additional_attack_command=False)
 
             self.bot.manage_queen_attack()
 

@@ -338,7 +338,8 @@ async def micro_element(self):
 async def queen_management(self):
     for queen in self.units(UnitTypeId.QUEEN):
         dist = get_distance(queen.position, self.start_location)
-        bases_amount = self.structures(UnitTypeId.HATCHERY).amount + self.structures(UnitTypeId.LAIR).amount + self.structures(UnitTypeId.HIVE).amount
+        bases_amount = self.structures(UnitTypeId.HATCHERY).amount + self.structures(
+            UnitTypeId.LAIR).amount + self.structures(UnitTypeId.HIVE).amount
         if queen.is_idle and dist < 40:
             if queen.energy >= 25 and bases_amount > 0:
                 first_townhall = self.townhalls.first
@@ -404,10 +405,10 @@ async def mining_iteration(self):
 
         drones = []
         for drone in self.units(UnitTypeId.DRONE):
-            if (drone.tag not in self.wall_breakers_tags) and\
-                    (drone.tag not in self.attack_drones_tags) and\
-                    (drone.tag not in self.building_workers_tags) and\
-                    (drone.tag not in self.drones_on_gas_tags) and\
+            if (drone.tag not in self.wall_breakers_tags) and \
+                    (drone.tag not in self.attack_drones_tags) and \
+                    (drone.tag not in self.building_workers_tags) and \
+                    (drone.tag not in self.drones_on_gas_tags) and \
                     get_distance(drone.position, self.closest_unit(bases, drone).position) < 20:
                 drones.append(drone)
 
@@ -670,7 +671,7 @@ def has_expand_ramp(self):
     return True
 
 
-def accurate_attack(self, unit, attack_on_way=False):
+def accurate_attack(self, unit, attack_on_way=False, need_additional_attack_command=True):
     close_to_expand_ramp = get_distance(unit.position, self.two_enemy_ramps[1].top_center) < 2
     close_to_main_ramp = get_distance(unit.position, self.two_enemy_ramps[0].top_center) < 2
     if unit.tag not in self.expand_ramp_passed_tags and self.expand_rump_exist:
@@ -685,7 +686,8 @@ def accurate_attack(self, unit, attack_on_way=False):
         target = self.enemy_start_locations[0].position
 
     close_to_main = get_distance(unit.position, self.enemy_start_locations[0].position) < 3
-    if attack_on_way or (close_to_expand_ramp and self.expand_rump_exist) or close_to_main_ramp or close_to_main:
+    if need_additional_attack_command and (attack_on_way or (close_to_expand_ramp and self.expand_rump_exist)
+                                           or close_to_main_ramp or close_to_main):
         self.action_registry.submit_action(
             tag=unit.tag,
             action=lambda u=unit, t=target: u.attack(t),
@@ -696,7 +698,7 @@ def accurate_attack(self, unit, attack_on_way=False):
         self.action_registry.submit_action(
             tag=unit.tag,
             action=lambda u=unit, t=target: u.move(t),
-            priority=ActionPriority.NORMAL,
+            priority=ActionPriority.LOW + 1,
             source="uf_accurate_attack_move"
         )
 
@@ -744,4 +746,3 @@ def dodge_corrosive_bile(self):
                     priority=ActionPriority.CRITICAL,
                     source="dodge_corrosive_bile"
                 )
-

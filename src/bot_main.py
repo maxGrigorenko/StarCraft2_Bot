@@ -226,7 +226,7 @@ class SmallBly(BotAI):
 
 def main():
     run_game(sc2.maps.get("TorchesAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        # Human(Race.Zerg),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+        # Human(Race.Protoss),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4
         Bot(Race.Zerg, SmallBly()),
         Computer(Race.Protoss, Difficulty.VeryHard),
@@ -235,6 +235,18 @@ def main():
              random_seed=0,
              # save_replay_as="smallBly_vs_smallBly_21-08-2025.SC2Replay",
              )
+    """
+    VeryEasy = 1
+    Easy = 2
+    Medium = 3
+    MediumHard = 4
+    Hard = 5
+    Harder = 6
+    VeryHard = 7
+    CheatVision = 8
+    CheatMoney = 9
+    CheatInsane = 10
+    """
 
 
 if __name__ == '__main__':
