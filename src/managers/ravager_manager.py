@@ -193,6 +193,9 @@ class RavagerManager:
 
         # Manage Ravagers
         for ravager in ravagers:
+            ravager_critical_health = ravager.health < ravager.health_max * 0.4
+            ravager_low_health = ravager.health < ravager.health_max * 0.6
+            ravager_normal_health = ravager.health < ravager.health_max * 0.8
             handled = False
             closest_danger = None
             can_cast_bile = await bot.can_cast(ravager, AbilityId.EFFECT_CORROSIVEBILE, only_check_energy_and_cooldown=True)
@@ -253,12 +256,19 @@ class RavagerManager:
             if not handled:
                 closest_enemy = find_closest_enemy(ravager, ground_enemies)
                 if closest_enemy is not None:
+                    danger_dist = 7.0
+                    if ravager_critical_health:
+                        danger_dist = 12.0
+                    elif ravager_low_health:
+                        danger_dist = 10.0
+                    elif ravager_normal_health:
+                        danger_dist = 8.0
                     dist_to_enemy = get_distance(ravager.position, closest_enemy.position)
-                    if dist_to_enemy < 7.5:
+                    if dist_to_enemy < danger_dist:
                         if ravager.weapon_ready:
                             bot.action_registry.submit_action(tag=ravager.tag,
                                                               action=lambda r=ravager, t=closest_enemy.position: r.attack(t),
-                                                              priority=ActionPriority.NORMAL,
+                                                              priority=ActionPriority.HIGH,
                                                               source="RavagerManager")
                         else:
                             retreat_pos = calculate_retreat_position(
@@ -266,17 +276,26 @@ class RavagerManager:
                             )
                             bot.action_registry.submit_action(tag=ravager.tag,
                                                               action=lambda r=ravager, p=retreat_pos: r.move(p),
-                                                              priority=ActionPriority.NORMAL,
+                                                              priority=ActionPriority.HIGH,
                                                               source="RavagerManager")
                         handled = True
 
             # 4. Wait safely outside danger zone (prevent macro from walking into cannons)
             critic_distance = 10.0
-            if ravager.health < ravager.health_max * 0.6:
+            if ravager_low_health:
                 critic_distance = 15.0
+
             if can_cast_bile:
-                critic_distance = 8.5
-                if (closest_danger is not None) and (not closest_danger.is_visible) and (ravager.health > ravager.health_max * 0.7):
+                if not ravager_normal_health:
+                    critic_distance = 7.5
+                elif not ravager_low_health:
+                    critic_distance = 8.0
+                elif not ravager_critical_health:
+                    critic_distance = 8.5
+                else:
+                    critic_distance = 9.0
+
+                if (closest_danger is not None) and (not closest_danger.is_visible) and (not ravager_normal_health):
                     critic_distance = 3.0
 
             if (not handled) and (closest_danger is not None) and (min_danger_dist < critic_distance):
