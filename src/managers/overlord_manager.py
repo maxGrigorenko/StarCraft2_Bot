@@ -154,9 +154,9 @@ class OverlordManager:
 
             if self._is_near_enemy_base(position):
                 if not self._has_own_units_nearby(position, own_units):
-                    position = go_towards_point(unit_position=position,
-                                                target_position=self.own_start_location,
-                                                dist=10)
+                    position = go_from_point(unit_position=position,
+                                             dangerous_position=self.enemy_start_location,
+                                             dist=10)
 
             if overlord.health > overlord.health_max * 0.6 and get_distance(overlord.position, position) > 0.1:
                 self.bot.action_registry.submit_action(tag=overlord.tag,
