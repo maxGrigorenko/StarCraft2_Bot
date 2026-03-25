@@ -367,8 +367,11 @@ class ZerglingDroneStrategy:
         dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
         if not dronny:
             candidates = [unit for unit in self.bot.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
-            chosen = self.bot.closest_unit(candidates, self.bot.enemy_start_locations[0])
-            self.bot.dronny_tag = chosen.tag if chosen else None
+            if len(candidates) > 0:
+                chosen = self.bot.closest_unit(candidates, self.bot.enemy_start_locations[0])
+                self.bot.dronny_tag = chosen.tag if chosen else None
+            else:
+                chosen = None
             dronny = chosen
 
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount + self.bot.already_pending(
