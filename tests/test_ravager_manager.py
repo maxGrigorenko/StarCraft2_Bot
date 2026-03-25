@@ -11,7 +11,6 @@ from src.managers.ravager_manager import (
     calculate_retreat_position,
     find_closest_enemy,
     find_bile_target,
-    get_priority_structures,
     get_dangerous_structures,
     STATIC_DEFENSE_RANGES,
     BILE_RANGE,
@@ -197,21 +196,6 @@ class TestFindBileTarget:
         ravager = make_mock_unit(UnitTypeId.RAVAGER, (10, 10))
         result = find_bile_target(ravager, [], [], own_units=[])
         assert result is None
-
-
-class TestGetPriorityStructures:
-    def test_filters_static_defense(self):
-        cannon = make_mock_structure(UnitTypeId.PHOTONCANNON, (10, 10))
-        nexus = make_mock_structure(UnitTypeId.NEXUS, (20, 20))
-        spine = make_mock_structure(UnitTypeId.SPINECRAWLER, (15, 15))
-        result = get_priority_structures([cannon, nexus, spine])
-        assert cannon in result
-        assert spine in result
-        assert nexus not in result
-
-    def test_empty_input(self):
-        result = get_priority_structures([])
-        assert len(result) == 0
 
 
 class TestGetDangerousStructures:
