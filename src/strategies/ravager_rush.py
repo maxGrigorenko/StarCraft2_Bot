@@ -359,7 +359,10 @@ class RavagerStrategy:
                         )
 
                     else:
-                        self.bot.accurate_attack(unit, need_additional_attack_command=False)
+                        if self.bot.enemy_race == Race.Zerg:
+                            self.bot.accurate_attack(unit, attack_on_way=True)
+                        else:
+                            self.bot.accurate_attack(unit, need_additional_attack_command=False)
 
                 else:
                     self.bot.accurate_attack(unit, need_additional_attack_command=False)
