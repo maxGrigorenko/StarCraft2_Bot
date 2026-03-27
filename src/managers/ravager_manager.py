@@ -242,14 +242,14 @@ class RavagerManager:
                 if closest_enemy is not None:
                     danger_dist = 7.0
                     if ravager_critical_health:
-                        danger_dist = 15.0
+                        danger_dist = 13.0
                     elif ravager_low_health:
-                        danger_dist = 11.0
+                        danger_dist = 10.0
                     elif ravager_normal_health:
                         danger_dist = 8.5
                     dist_to_enemy = get_distance(ravager.position, closest_enemy.position)
                     if dist_to_enemy < danger_dist:
-                        if ravager.weapon_ready:
+                        if ravager.weapon_ready and (not ravager_critical_health or dist_to_enemy < 7):
                             bot.action_registry.submit_action(tag=ravager.tag,
                                                               action=lambda r=ravager, t=closest_enemy.position: r.attack(t),
                                                               priority=ActionPriority.HIGH,
