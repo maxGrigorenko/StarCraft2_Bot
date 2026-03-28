@@ -191,23 +191,33 @@ class RavagerManager:
                     min_danger_dist = d
                     closest_danger = struct
 
-            min_dist = 15.0
-            if closest_danger is not None and can_cast_bile:
-                if closest_danger.is_visible:
+            min_dist = 10.0
+            if ravager_low_health:
+                min_dist = 15.0
+
+            if can_cast_bile:
+                if not ravager_normal_health:
                     min_dist = 8.5
+                elif not ravager_low_health:
+                    min_dist = 9.5
+                elif not ravager_critical_health:
+                    min_dist = 11.0
                 else:
-                    min_dist = 3.0
+                    min_dist = 15.0
+
+                if (closest_danger is not None) and (not closest_danger.is_visible) and (not ravager_normal_health):
+                    min_dist = 4.0
 
             # 1. STRICT DISTANCE CHECK
             if (closest_danger is not None) and (min_danger_dist < min_dist):
                 safe_pos = go_from_point(
                     unit_position=ravager.position,
                     dangerous_position=closest_danger.position,
-                    dist=15.0-min_danger_dist
+                    dist=min(2, 15.0-min_danger_dist)
                 )
                 bot.action_registry.submit_action(tag=ravager.tag,
                                                   action=lambda r=ravager, p=safe_pos: r.move(p),
-                                                  priority=ActionPriority.NORMAL,
+                                                  priority=ActionPriority.HIGH,
                                                   source="RavagerManager")
                 handled = True
 
