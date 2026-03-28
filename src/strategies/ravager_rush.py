@@ -29,7 +29,7 @@ class RavagerStrategy:
         for roach in roaches:
             if current_ravagers >= 15:
                 break
-            if available_minerals >= 25 and available_gas >= 75 and roach.is_ready:
+            if available_minerals >= 25 and available_gas >= 75 and roach.is_ready and get_distance(roach.position, self.bot.start_location) > 4:
                 self.bot.action_registry.submit_action(
                     tag=roach.tag,
                     action=lambda r=roach: r(AbilityId.MORPHTORAVAGER_RAVAGER),
@@ -217,8 +217,12 @@ class RavagerStrategy:
             if extractor.assigned_harvesters < extractor.ideal_harvesters and \
                     self.bot.structures(UnitTypeId.EXTRACTOR).ready.exists and not self.bot.defence:
                 w = self.bot.workers.closer_than(6, extractor)
-                if w.exists:
-                    drone = w.random
+                drones_without_minerals = [unit for unit in w
+                                           if not unit.is_carrying_resource
+                                           and unit.tag != self.bot.dronny_tag
+                                           and unit.tag not in self.bot.building_workers_tags]
+                if len(drones_without_minerals) > 0:
+                    drone = drones_without_minerals[0]
                     if drone.tag != self.bot.dronny_tag:
                         self.bot.action_registry.submit_action(
                             tag=drone.tag,
