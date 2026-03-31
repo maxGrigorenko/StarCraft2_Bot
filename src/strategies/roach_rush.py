@@ -4,12 +4,13 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.data import Race
 from src.managers.ravager_manager import find_closest_enemy, calculate_retreat_position
 from src.managers.action_registry import ActionPriority
-from src.utils.coordinate_functions import get_distance
+from src.utils.coordinate_functions import get_distance, go_from_point, radius_go_from_point
 
 
 class RoachStrategy:
     def __init__(self, bot):
         self.bot = bot
+        self.sp_position = None
 
     def burrow_micro(self):
         if UpgradeId.BURROW not in self.bot.state.upgrades:
@@ -30,7 +31,7 @@ class RoachStrategy:
                 self.bot.action_registry.submit_action(
                     tag=roach.tag,
                     action=lambda u=roach: u(AbilityId.BURROWDOWN_ROACH),
-                    priority=ActionPriority.NORMAL,
+                    priority=ActionPriority.HIGH + 1,
                     source="burrow_micro"
                 )
 
@@ -46,7 +47,7 @@ class RoachStrategy:
                 self.bot.action_registry.submit_action(
                     tag=burrowed_roach.tag,
                     action=lambda u=burrowed_roach: u(AbilityId.BURROWUP_ROACH),
-                    priority=ActionPriority.NORMAL,
+                    priority=ActionPriority.HIGH + 1,
                     source="burrow_micro"
                 )
 
@@ -222,6 +223,7 @@ class RoachStrategy:
                     )
                     if dronny.tag not in self.bot.building_workers_tags:
                         self.bot.building_workers_tags.append(dronny.tag)
+                    self.sp_position = dronny.position
 
                 elif get_distance(dronny.position, self.bot.start_location) >= distance and self.bot.minerals > 160:
                     self.bot.action_registry.submit_action(
@@ -289,9 +291,13 @@ class RoachStrategy:
             if dronny is not None:
                 if self.bot.time > 55 and not dronny.is_carrying_resource and \
                         get_distance(dronny.position, self.bot.start_location) < distance:
+                    sp_position = self.sp_position
+                    loc_position = self.bot.start_location
                     self.bot.action_registry.submit_action(
                         tag=dronny.tag,
-                        action=lambda u=dronny, p=self.bot.enemy_start_locations[0].position: u.move(p),
+                        action=lambda u=dronny,
+                                      p=radius_go_from_point(center_position=loc_position, start_position=sp_position, angle=0.5, direction=1):
+                        u.move(p),
                         priority=ActionPriority.LOW,
                         source="roach_rush_step"
                     )
@@ -304,7 +310,7 @@ class RoachStrategy:
                         tag=dronny.tag,
                         action=lambda u=dronny, tid=UnitTypeId.ROACHWARREN, near_pos=dronny.position: u.build(tid, near_pos),
                         priority=ActionPriority.HIGH,
-                        source="roach_rush_step"
+                        source="building_roach_warren"
                     )
                     if dronny.tag not in self.bot.building_workers_tags:
                         self.bot.building_workers_tags.append(dronny.tag)

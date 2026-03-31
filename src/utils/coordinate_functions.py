@@ -1,3 +1,4 @@
+import math
 import sc2.position
 
 def sign(x):
@@ -80,3 +81,12 @@ def go_from_point(unit_position, dangerous_position, dist):  # not accurate
 def go_towards_point(unit_position, target_position, dist):
     return go_from_point(unit_position, target_position, -dist)
 
+def radius_go_from_point(center_position, start_position, direction, angle):
+    cx, cy = center_position[0], center_position[1]
+    sx, sy = start_position[0], start_position[1]
+    radius = get_distance(center_position, start_position)
+    current_angle = math.atan2(sy - cy, sx - cx)
+    new_angle = current_angle + direction * angle
+    new_x = cx + radius * math.cos(new_angle)
+    new_y = cy + radius * math.sin(new_angle)
+    return sc2.position.Point2([new_x, new_y])

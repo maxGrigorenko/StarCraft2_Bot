@@ -253,7 +253,7 @@ class RavagerStrategy:
                     self.bot.action_registry.submit_action(
                         tag=dronny.tag,
                         action=lambda d=dronny, t=self.bot.enemy_start_locations[0]: d.move(t),
-                        priority=30,
+                        priority=ActionPriority.LOW,
                         source="ravager_rush_drone_move_to_enemy"
                     )
                     if dronny.tag not in self.bot.building_workers_tags:
@@ -269,7 +269,7 @@ class RavagerStrategy:
                     self.bot.action_registry.submit_action(
                         tag=dronny.tag,
                         action=lambda d=dronny: d.move(d.position),
-                        priority=30,
+                        priority=ActionPriority.LOW,
                         source="ravager_rush_drone_move_self"
                     )
 
