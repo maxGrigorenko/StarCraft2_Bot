@@ -104,7 +104,7 @@ class RoachStrategy:
                 if roach.weapon_ready:
                     self.bot.action_registry.submit_action(
                         tag=roach.tag,
-                        action=lambda u=roach, p=closest_enemy.position: u.attack(p),
+                        action=lambda u=roach, p=closest_enemy: u.attack(p),
                         priority=ActionPriority.NORMAL,
                         source="roach_micro"
                     )
@@ -306,12 +306,7 @@ class RoachStrategy:
 
                 elif self.bot.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and self.bot.can_afford(
                         UnitTypeId.ROACHWARREN):
-                    self.bot.action_registry.submit_action(
-                        tag=dronny.tag,
-                        action=lambda u=dronny, tid=UnitTypeId.ROACHWARREN, near_pos=dronny.position: u.build(tid, near_pos),
-                        priority=ActionPriority.HIGH,
-                        source="building_roach_warren"
-                    )
+                    await self.bot.build(UnitTypeId.ROACHWARREN, build_worker=dronny, near=dronny)
                     if dronny.tag not in self.bot.building_workers_tags:
                         self.bot.building_workers_tags.append(dronny.tag)
 
@@ -414,7 +409,7 @@ class RoachStrategy:
                             self.bot.action_registry.submit_action(
                                 tag=unit.tag,
                                 action=lambda u=unit, p=self.bot.townhalls.first.position: u.move(p),
-                                priority=ActionPriority.LOW,
+                                priority=ActionPriority.NORMAL,
                                 source="roach_rush_step"
                             )
 

@@ -428,7 +428,7 @@ class RavagerManager:
                         if ravager.weapon_ready and (not ravager_critical_health or dist_to_enemy < 7):
                             bot.action_registry.submit_action(
                                 tag=ravager.tag,
-                                action=lambda r=ravager, t=closest_enemy.position: r.attack(t),
+                                action=lambda r=ravager, t=closest_enemy: r.attack(t),
                                 priority=ActionPriority.HIGH,
                                 source="RavagerManager"
                             )
@@ -505,7 +505,7 @@ class RavagerManager:
                         if roach.weapon_ready:
                             bot.action_registry.submit_action(
                                 tag=roach.tag,
-                                action=lambda r=roach, t=closest_enemy.position: r.attack(t),
+                                action=lambda r=roach, t=closest_enemy: r.attack(t),
                                 priority=ActionPriority.NORMAL + 1,
                                 source="RavagerManager"
                             )

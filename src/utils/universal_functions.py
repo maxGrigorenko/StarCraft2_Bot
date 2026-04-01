@@ -532,14 +532,21 @@ async def macro_element(self):
                 return
 
             if self.can_afford(UnitTypeId.EXTRACTOR):
-                target = self.vespene_geyser.closest_to(dronny.position)
+                home_geysers = self.vespene_geyser.filter(lambda unit: get_distance(self.start_location, unit.position) < 9)
+                extractors = self.units(UnitTypeId.EXTRACTOR)
+                if not extractors.exists:
+                    without_extractor = home_geysers
+                else:
+                    without_extractor = home_geysers.filter(lambda g: get_distance(g, extractors.closest_to(g.position)) > 0.5)
+
+                if len(without_extractor) == 0:
+                    print("No extractors found")
+                    return
+
+                target = without_extractor[0]
                 if target is not None:
-                    self.action_registry.submit_action(
-                        tag=dronny.tag,
-                        action=lambda d=dronny, t=target: d.build(UnitTypeId.EXTRACTOR, t),
-                        priority=ActionPriority.NORMAL,
-                        source="uf_macro_element_build_extractor"
-                    )
+                    print("building second extractor")
+                    await self.build(UnitTypeId.EXTRACTOR, target, build_worker=dronny)
                     if dronny.tag not in self.building_workers_tags:
                         self.building_workers_tags.append(dronny.tag)
                     return
@@ -573,8 +580,9 @@ async def macro_element(self):
         if not (self.structures(UnitTypeId.SPIRE).exists or self.already_pending(UnitTypeId.SPIRE)):
             if self.can_afford(UnitTypeId.SPIRE):
                 dronny = self.refresh_unit(self.dronny_tag)
-                if not dronny or dronny is None:
-                    free_drones = [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
+                if dronny is None:
+                    free_drones = [unit for unit in self.units(UnitTypeId.DRONE) if not unit.is_carrying_resource
+                                   and unit.tag not in self.building_workers_tags]
                     if not free_drones:
                         return
                     dronny = self.closest_unit(free_drones, self.start_location)
@@ -584,11 +592,15 @@ async def macro_element(self):
                     return
 
                 spawning_pool = self.structures(UnitTypeId.SPAWNINGPOOL)
+                print("building spire")
                 if spawning_pool.exists:
                     await self.build(UnitTypeId.SPIRE, build_worker=dronny,
                                      near=spawning_pool[0])
-                    if dronny.tag not in self.building_workers_tags:
-                        self.building_workers_tags.append(dronny.tag)
+                else:
+                    await self.build(UnitTypeId.SPIRE, build_worker=dronny,
+                                     near=self.start_location)
+                if dronny.tag not in self.building_workers_tags:
+                    self.building_workers_tags.append(dronny.tag)
 
     if self.structures(UnitTypeId.SPIRE).ready.exists:
         if self.units(UnitTypeId.LARVA).exists:
