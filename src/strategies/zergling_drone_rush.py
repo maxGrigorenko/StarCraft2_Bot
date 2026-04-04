@@ -136,13 +136,7 @@ class ZerglingDroneStrategy:
 
                     if self.bot.place != enemy_base_position and self.bot.minerals >= 100 and d < 11.2:
                         print(f"\nTry to build spine with distance: {d}")
-                        self.bot.action_registry.submit_action(
-                            tag=breaker.tag,
-                            action=lambda b=breaker: self.bot.build(UnitTypeId.SPINECRAWLER, near=b, build_worker=b,
-                                                                    max_distance=0),
-                            priority=ActionPriority.HIGH,
-                            source="zvz_spine_crawler_build"
-                        )
+                        await self.bot.build(UnitTypeId.SPINECRAWLER, build_worker=breaker, near=breaker, max_distance=1)
                         self.bot.stop_crawl = True
 
                 if not self.bot.stop_crawl:
