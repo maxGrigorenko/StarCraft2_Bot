@@ -1,7 +1,8 @@
-# StarCraft2 Бот – SmallBly
+# StarCraft2 Бот – smallBly
 
 Бот для StarCraft II, написанный на Python с использованием библиотеки `python-sc2`.  
-Занимает **топ‑15%** на платформе [aiarena.net](https://aiarena.net) благодаря адаптивной стратегии, основанной на статистике сыгранных партий.
+Занимает **топ‑15%** на платформе [aiarena.net](https://aiarena.net/competitions/36/) благодаря адаптивной стратегии, основанной на статистике сыгранных партий.  
+[Профиль на aiarena](https://aiarena.net/bots/338)
 
 ## Ключевые особенности
 
