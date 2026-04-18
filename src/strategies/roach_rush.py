@@ -289,14 +289,24 @@ class RoachStrategy:
 
             distance = 8
             if dronny is not None:
+                sp_position = self.sp_position
+                loc_position = self.bot.start_location
+                potential_point = radius_go_from_point(center_position=loc_position, start_position=sp_position, angle=0.5, direction=1)
+                loc_dist = get_distance(potential_point, loc_position)
+
+                if loc_dist < 6:
+                    potential_point = go_from_point(unit_position=potential_point, dangerous_position=loc_position, dist=8-loc_dist)
+
+                sp_dist = get_distance(potential_point, sp_position)
+                if get_distance(potential_point, sp_position) < 3:
+                    potential_point = go_from_point(unit_position=potential_point, dangerous_position=sp_position, dist=3-sp_dist)
+
                 if self.bot.time > 55 and not dronny.is_carrying_resource and \
-                        get_distance(dronny.position, self.bot.start_location) < distance:
-                    sp_position = self.sp_position
-                    loc_position = self.bot.start_location
+                        get_distance(dronny.position, potential_point) > 2:
                     self.bot.action_registry.submit_action(
                         tag=dronny.tag,
                         action=lambda u=dronny,
-                                      p=radius_go_from_point(center_position=loc_position, start_position=sp_position, angle=0.5, direction=1):
+                                      p=potential_point:
                         u.move(p),
                         priority=ActionPriority.LOW,
                         source="roach_rush_step"

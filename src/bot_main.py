@@ -145,7 +145,7 @@ class SmallBly(BotAI):
     def read_and_choose_strategy(self):
         opponent_id = self.opponent_id
         if opponent_id is None:
-            self.strategy = StrategyID.ZERGLING_DRONE_RUSH
+            self.strategy = StrategyID.ROACH_RUSH
             return
 
         with open("data/statistics.txt") as f:
@@ -227,17 +227,18 @@ class SmallBly(BotAI):
 '''
 TODO:
 1) bug, after defending against scout probe drones stop and do nothing (see games against nida)
-2) bug, when drone can't start building roach warren in roach_rush (also see after defending against worker rush) (see 48 minutes game against JimmyBot)
+2) bug, when drone can't start building roach warren in roach_rush (also see after defending against worker rush) (see 48 minutes game against JimmyBot) # DONE
 3) bug, when queens do not attack (see Tie against BenBotBC)
+4) add drones micro for defence
 '''
 
 
 def main():
-    run_game(sc2.maps.get("MagannathaAIE_v2"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        Human(Race.Zerg),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+    run_game(sc2.maps.get("PylonAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
+        # Human(Race.Zerg),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4; PylonAIE_v4; MagannathaAIE_v2
         Bot(Race.Zerg, SmallBly()),
-        # Computer(Race.Terran, Difficulty.CheatInsane),
+        Computer(Race.Terran, Difficulty.CheatInsane),
     ], realtime=False,
              disable_fog=False,
              random_seed=0,
