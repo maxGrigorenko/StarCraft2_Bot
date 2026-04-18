@@ -10,16 +10,19 @@ import random
 
 def refresh_unit(self, unit_or_tag):
     if unit_or_tag is None:
+        # print('got None')
         return None
     if isinstance(unit_or_tag, int):
         try:
             return self.units.by_tag(unit_or_tag)
         except KeyError:
+            # print('KeyError for tag')
             return None
     # If it's a Unit object, refresh it by tag
     try:
         return self.units.by_tag(unit_or_tag.tag)
     except KeyError:
+        # print('KeyError for Unit')
         return None
 
 
@@ -268,21 +271,33 @@ async def defending(self):
                         if len(self.attack_drones_tags) >= defenders_amount:
                             break
 
+            mineral_field = min(self.mineral_field, key=lambda x: get_distance(x.position, self.start_location))
             for tag in self.attack_drones_tags:
                 unit = self.refresh_unit(tag)
                 if unit is None:
                     continue
+
                 if unit.tag not in self.in_micro_tags:
                     closest = self.closest_unit(close_enemies, unit)
                     if closest is None:
                         continue
                     target_pos = closest.position
-                    self.action_registry.submit_action(
-                        tag=unit.tag,
-                        action=lambda u=unit, t=target_pos: u.attack(t),
-                        priority=ActionPriority.NORMAL,
-                        source="uf_defending"
-                    )
+
+                    if not unit.weapon_ready:
+                        self.action_registry.submit_action(
+                            tag=unit.tag,
+                            action=lambda u=unit, mf=mineral_field: u.gather(mf),
+                            priority=ActionPriority.HIGH,
+                            source="uf_defence_micro_gather"
+                        )
+
+                    else:
+                        self.action_registry.submit_action(
+                            tag=unit.tag,
+                            action=lambda u=unit, t=target_pos: u.attack(t),
+                            priority=ActionPriority.NORMAL,
+                            source="uf_defending"
+                        )
 
             self.defence = True
 
@@ -290,7 +305,7 @@ async def defending(self):
             self.defence = False
             self.attack_drones_tags.clear()
 
-    if len(self.enemy_units) == 0 and self.defence:
+    if len(close_enemies) == 0 and self.defence:
         self.defence = False
         self.attack_drones_tags.clear()
 
@@ -385,11 +400,13 @@ def proxy(self):
             break
 
 
-def check_drones_on_gas(self):
-    for drone_tag in self.drones_on_gas_tags:
+def remove_idle_drones_tags(self, drones_tags):
+    for drone_tag in drones_tags:
         drone = self.units.find_by_tag(drone_tag)
         if drone is not None and drone.is_idle:
-            self.drones_on_gas_tags.remove(drone_tag)
+            drones_tags.remove(drone_tag)
+
+    return drones_tags
 
 
 async def mining_iteration(self):
@@ -399,7 +416,10 @@ async def mining_iteration(self):
         UnitTypeId.LAIR).amount + self.structures(UnitTypeId.HIVE).amount
 
     if len(self.drones_on_gas_tags) > 0:
-        self.check_drones_on_gas()
+        self.drones_on_gas_tags = self.remove_idle_drones_tags(self.drones_on_gas_tags)
+        
+    if len(self.attack_drones_tags) > 0:
+        self.attack_drones_tags = self.remove_idle_drones_tags(self.attack_drones_tags)
 
     if self.units(UnitTypeId.DRONE).amount > 0 and bases_amount > 0 and self.mineral_field.amount > 0:
 
