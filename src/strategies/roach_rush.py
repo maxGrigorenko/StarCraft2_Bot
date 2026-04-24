@@ -16,9 +16,9 @@ class RoachStrategy:
         if UpgradeId.BURROW not in self.bot.state.upgrades:
             return
 
-        self.bot.in_burrow_process_tags = [
+        self.bot.in_burrow_process_tags = {
             roach.tag for roach in self.bot.units(UnitTypeId.ROACH) if roach.health <= 54
-        ]
+        }
 
         detectors = [unit for unit in self.bot.enemy_units if unit.is_detector]
         for struct in self.bot.enemy_structures:
@@ -70,22 +70,6 @@ class RoachStrategy:
                     priority=ActionPriority.NORMAL,
                     source="burrow_micro"
                 )
-
-        '''
-        NEED TO REFACTOR SPEEDMINING
-        if self.bot.enemy_units.exists:
-            for drone in self.bot.units(UnitTypeId.DRONE):
-                if drone.health < drone.health_max - 5 and \
-                        get_distance(self.bot.closest_enemy_unit(drone).position, drone.position) <= 10 and \
-                        drone not in self.bot.drones_on_gas:
-                    drone(AbilityId.BURROWDOWN_DRONE)
-    
-        for burrowed_drone in self.bot.units(UnitTypeId.DRONEBURROWED):
-            if burrowed_drone.health == burrowed_drone.health_max or not self.bot.enemy_units.exists:
-                burrowed_drone(AbilityId.BURROWUP_DRONE)
-            elif get_distance(self.bot.closest_enemy_unit(burrowed_drone).position, burrowed_drone.position) > 10:
-                burrowed_drone(AbilityId.BURROWUP_DRONE)
-        '''
 
     async def roach_micro_management(self):
         roaches = self.bot.units(UnitTypeId.ROACH)
@@ -212,7 +196,7 @@ class RoachStrategy:
                         source="roach_rush_step"
                     )
                     if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
+                        self.bot.building_workers_tags.add(dronny.tag)
 
                 elif self.bot.can_afford(UnitTypeId.SPAWNINGPOOL):
                     self.bot.action_registry.submit_action(
@@ -222,7 +206,7 @@ class RoachStrategy:
                         source="roach_rush_step"
                     )
                     if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
+                        self.bot.building_workers_tags.add(dronny.tag)
                     self.sp_position = dronny.position
 
                 elif get_distance(dronny.position, self.bot.start_location) >= distance and self.bot.minerals > 160:
@@ -241,7 +225,7 @@ class RoachStrategy:
                     source="roach_rush_step"
                 )
                 if dronny.tag not in self.bot.building_workers_tags:
-                    self.bot.building_workers_tags.append(dronny.tag)
+                    self.bot.building_workers_tags.add(dronny.tag)
 
         # BUILDING EXTRACTOR
 
@@ -257,7 +241,7 @@ class RoachStrategy:
                     source="roach_rush_step"
                 )
                 if dronny.tag not in self.bot.building_workers_tags:
-                    self.bot.building_workers_tags.append(dronny.tag)
+                    self.bot.building_workers_tags.add(dronny.tag)
 
         for extractor in self.bot.structures(UnitTypeId.EXTRACTOR):
             if extractor.assigned_harvesters < extractor.ideal_harvesters and \
@@ -273,7 +257,7 @@ class RoachStrategy:
                             source="roach_rush_step"
                         )
                         if drone.tag not in self.bot.drones_on_gas_tags:
-                            self.bot.drones_on_gas_tags.append(drone.tag)
+                            self.bot.drones_on_gas_tags.add(drone.tag)
 
         # BUILDING ROACH WARREN
 
@@ -312,13 +296,13 @@ class RoachStrategy:
                         source="roach_rush_step"
                     )
                     if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
+                        self.bot.building_workers_tags.add(dronny.tag)
 
                 elif self.bot.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and self.bot.can_afford(
                         UnitTypeId.ROACHWARREN):
                     await self.bot.build(UnitTypeId.ROACHWARREN, build_worker=dronny, near=dronny)
                     if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
+                        self.bot.building_workers_tags.add(dronny.tag)
 
                 elif get_distance(dronny.position, self.bot.start_location) >= distance:
                     self.bot.action_registry.submit_action(

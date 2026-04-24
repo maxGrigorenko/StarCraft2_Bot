@@ -27,9 +27,9 @@ class OverlordManager:
         self.enemy_start_location = None
         self.own_start_location = None
         self.enemy_locations = None
-        self.overlord_tags = []
+        self.overlord_tags: set[int] = set()
         self.tags_positions = []
-        self.busy_overlords = []
+        self.busy_overlords: set[int] = set()
         self.enemies = []
 
     def load_data(self, own_start_location, enemy_start_location,
@@ -43,15 +43,15 @@ class OverlordManager:
         self.data_loaded = True
 
     def add_tag(self, tag):
-        self.overlord_tags.append(tag)
+        self.overlord_tags.add(tag)
         self.positions_assigned = False
 
     def remove_tag(self, tag):
-        self.overlord_tags.remove(tag)
+        self.overlord_tags.discard(tag)
         self.positions_assigned = False
 
     def set_tags(self, tags):
-        self.overlord_tags = tags
+        self.overlord_tags = set(tags)
         self.positions_assigned = False
 
     def calculate_positions(self):
@@ -90,7 +90,7 @@ class OverlordManager:
             free_overlords = [overlord for overlord in overlords if overlord.tag in free_overlord_tags]
             overlord = min(free_overlords, key=lambda x: get_distance(x.position, position))
             overlord_and_tag.overlord_tag = overlord.tag
-            self.busy_overlords.append(overlord.tag)
+            self.busy_overlords.add(overlord.tag)
             free_overlord_tags.remove(overlord.tag)
             if len(free_overlord_tags) == 0:
                 return

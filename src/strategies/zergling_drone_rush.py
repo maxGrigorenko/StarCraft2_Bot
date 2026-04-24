@@ -38,7 +38,7 @@ class ZerglingDroneStrategy:
                     break
                 if unit.tag not in self.bot.home_dronny_tags and not unit.is_carrying_resource:
                     if unit.tag not in self.bot.wall_breakers_tags:
-                        self.bot.wall_breakers_tags.append(unit.tag)
+                        self.bot.wall_breakers_tags.add(unit.tag)
 
     async def zvz_spine_crawler(self):
         self.check_wall_breakers(1)
@@ -48,10 +48,10 @@ class ZerglingDroneStrategy:
                 self.bot.stop_wall_breaker = True
                 return
 
-            breaker_tag = self.bot.wall_breakers_tags[0]
+            breaker_tag = next(iter(self.bot.wall_breakers_tags))
             breaker = self.bot.units.find_by_tag(breaker_tag)
             if breaker is None:
-                self.bot.wall_breakers_tags.remove(breaker_tag)
+                self.bot.wall_breakers_tags.discard(breaker_tag)
                 self.bot.stop_wall_breaker = True
                 return
 
@@ -81,7 +81,7 @@ class ZerglingDroneStrategy:
 
                 breaker = self.bot.units.find_by_tag(unit.tag)
                 if breaker is None:
-                    self.bot.wall_breakers_tags.remove(unit.tag)
+                    self.bot.wall_breakers_tags.discard(unit.tag)
                     continue
 
                 enemy_base_position = self.bot.enemy_start_locations[0]
@@ -175,7 +175,7 @@ class ZerglingDroneStrategy:
 
             breaker = self.bot.units.find_by_tag(unit.tag)
             if breaker is None:
-                self.bot.wall_breakers_tags.remove(unit.tag)
+                self.bot.wall_breakers_tags.discard(unit.tag)
                 continue
 
             if not breaker.is_carrying_resource and breaker.health > 5:
@@ -188,11 +188,11 @@ class ZerglingDroneStrategy:
                         source="wall_breaker_move_to_first_loc"
                     )
                     if breaker.tag not in self.bot.wall_breakers_tags:
-                        self.bot.wall_breakers_tags.append(breaker.tag)
+                        self.bot.wall_breakers_tags.add(breaker.tag)
                     self.bot.have_moved_wall_breaker = True
 
                 elif get_distance(breaker.position, self.bot.start_location) < 8:
-                    selected_tag = self.bot.wall_breakers_tags[0] if self.bot.wall_breakers_tags else None
+                    selected_tag = next(iter(self.bot.wall_breakers_tags)) if self.bot.wall_breakers_tags else None
                     if selected_tag is not None:
                         selected_drone = self.bot.units.find_by_tag(selected_tag)
                         if selected_drone is not None:
@@ -204,7 +204,7 @@ class ZerglingDroneStrategy:
                                     source="wall_breaker_move_to_first_loc2"
                                 )
                         else:
-                            self.bot.wall_breakers_tags.remove(selected_tag)
+                            self.bot.wall_breakers_tags.discard(selected_tag)
 
                 if self.prominent_structures() >= 2:
                     if not self.bot.begin_position and get_distance(breaker.position,
@@ -270,10 +270,10 @@ class ZerglingDroneStrategy:
         if not self.bot.units(UnitTypeId.DRONE).exists and self.bot.minerals < 50:
             self.bot.need_air_units = False
 
-        self.bot.home_dronny_tags = [
+        self.bot.home_dronny_tags = {
             tag for tag in self.bot.home_dronny_tags
             if self.bot.units.find_by_tag(tag) is not None
-        ]
+        }
 
         if len(self.bot.home_dronny_tags) == 0:
             await self.bot.distribute_workers()
@@ -285,7 +285,7 @@ class ZerglingDroneStrategy:
                     break
                 else:
                     if drone.tag not in self.bot.home_dronny_tags:
-                        self.bot.home_dronny_tags.append(drone.tag)
+                        self.bot.home_dronny_tags.add(drone.tag)
 
         if iteration == 30:
             await self.bot.chat_send("gl hf!")
@@ -382,7 +382,7 @@ class ZerglingDroneStrategy:
                         source="move_to_pool_location"
                     )
                     if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
+                        self.bot.building_workers_tags.add(dronny.tag)
 
                 elif self.bot.can_afford(UnitTypeId.SPAWNINGPOOL):
                     self.bot.action_registry.submit_action(
@@ -393,7 +393,7 @@ class ZerglingDroneStrategy:
                         source="building_pool"
                     )
                     if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
+                        self.bot.building_workers_tags.add(dronny.tag)
 
                 elif get_distance(dronny.position, self.bot.start_location) >= distance and self.bot.minerals > 160:
                     self.bot.action_registry.submit_action(
@@ -413,7 +413,7 @@ class ZerglingDroneStrategy:
                     source="random_drone_build_pool"
                 )
                 if random_drone.tag not in self.bot.building_workers_tags:
-                    self.bot.building_workers_tags.append(random_drone.tag)
+                    self.bot.building_workers_tags.add(random_drone.tag)
 
         if (self.bot.supply_left < 1 or (self.bot.need_air_units and self.bot.supply_left < 4)) and \
                 not self.bot.already_pending(UnitTypeId.OVERLORD):
@@ -508,17 +508,17 @@ class ZerglingDroneStrategy:
 
         # STOPPING ATTACK WITH DRONES
 
-        self.bot.attack_drones_tags = [
+        self.bot.attack_drones_tags = {
             tag for tag in self.bot.attack_drones_tags
             if self.bot.units.find_by_tag(tag) is not None
-        ]
+        }
 
         if self.bot.time > self.bot.stop_new_drone_attack_time:
             for drone in self.bot.units(UnitTypeId.DRONE):
                 if drone.tag not in self.bot.home_dronny_tags and \
                         get_distance(drone.position, self.bot.start_location) < 10 and \
                         drone.tag not in self.bot.attack_drones_tags:
-                    self.bot.home_dronny_tags.append(drone.tag)
+                    self.bot.home_dronny_tags.add(drone.tag)
 
         # ATTACK
 
@@ -535,10 +535,10 @@ class ZerglingDroneStrategy:
                     await self.bot.group_units(middle_unit, max_distance)
                     return
 
-            self.bot.in_micro_tags = [
+            self.bot.in_micro_tags = {
                 tag for tag in self.bot.in_micro_tags
                 if self.bot.units.find_by_tag(tag) is not None
-            ]
+            }
 
             for unit in forces:
                 if unit.tag in self.bot.in_micro_tags:
@@ -614,7 +614,7 @@ class ZerglingDroneStrategy:
                             source="start_attack_drone_move"
                         )
                         if drone.tag not in self.bot.attack_drones_tags:
-                            self.bot.attack_drones_tags.append(drone.tag)
+                            self.bot.attack_drones_tags.add(drone.tag)
 
                 self.bot.stop_new_drone_attack_time = self.bot.time + 8
 
