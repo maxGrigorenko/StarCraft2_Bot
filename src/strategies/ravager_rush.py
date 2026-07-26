@@ -59,10 +59,10 @@ class RavagerStrategy:
         )
 
     async def ravager_rush_step(self, iteration):
-        await self.bot.mining_iteration()
+        await self.bot.economy_helper.mining_iteration()
         await self.bot.overlord_manager.manage(overlords=self.bot.units(UnitTypeId.OVERLORD),
-                                               enemies=self.bot.air_danger_units())
-        await self.bot.queen_management()
+                                               enemies=self.bot.scouting_helper.air_danger_units())
+        await self.bot.combat_helper.queen_management()
         self.morph_ravagers()
         self.bot.handled_by_micro = await self.use_corrosive_bile()
 
@@ -92,11 +92,11 @@ class RavagerStrategy:
         else:
             first_base = self.bot.townhalls.first
             if first_base.health < 401:
-                self.bot.proxy()
+                self.bot.unit_helper.proxy()
                 return
 
         if not self.bot.units(UnitTypeId.ROACH).exists and not self.bot.units(UnitTypeId.RAVAGER).exists:
-            await self.bot.defending()
+            await self.bot.combat_helper.defending()
         else:
             self.bot.defence = False
 
@@ -104,7 +104,7 @@ class RavagerStrategy:
                 self.bot.supply_workers >= 14 or
                 (not (self.bot.structures(UnitTypeId.SPAWNINGPOOL).exists or self.bot.already_pending(
                     UnitTypeId.SPAWNINGPOOL)))) \
-                and not self.bot.dangerous_structures_exist():
+                and not self.bot.unit_helper.dangerous_structures_exist():
             self.bot.stop_drone = True
 
         elif self.bot.stop_drone and (
@@ -121,7 +121,7 @@ class RavagerStrategy:
                 f"\nOpponent_id: {self.bot.opponent_id}\n\nMap size: {self.bot.game_info.map_size[0]} {self.bot.game_info.map_size[1]}\n\nStart location: {self.bot.start_location.position[0]} {self.bot.start_location[1]}")
 
         if len(self.bot.locations) == 0:
-            self.bot.locations = self.bot.get_locations()
+            self.bot.locations = self.bot.scouting_helper.get_locations()
 
         # BUILDING DRONES
         if self.bot.structures(UnitTypeId.ROACHWARREN).amount + self.bot.already_pending(UnitTypeId.ROACHWARREN) == 0:
@@ -136,7 +136,7 @@ class RavagerStrategy:
             drones_without_minerals = [unit for unit in self.bot.units(UnitTypeId.DRONE) if
                                        not unit.is_carrying_resource]
             if len(drones_without_minerals) >= 1:
-                chosen = self.bot.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
+                chosen = self.bot.unit_helper.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
                 self.bot.dronny_tag = chosen.tag if chosen else None
                 dronny = chosen
 
@@ -242,7 +242,7 @@ class RavagerStrategy:
                 drones_without_minerals = [unit for unit in self.bot.units(UnitTypeId.DRONE) if
                                            not unit.is_carrying_resource]
                 if len(drones_without_minerals) >= 1:
-                    chosen = self.bot.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
+                    chosen = self.bot.unit_helper.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
                     self.bot.dronny_tag = chosen.tag if chosen else None
                     dronny = chosen
 
@@ -278,7 +278,7 @@ class RavagerStrategy:
             if self.bot.units(UnitTypeId.MUTALISK).amount > 4:
                 self.bot.need_air_units = False
             else:
-                await self.bot.macro_element()
+                await self.bot.economy_helper.macro_element()
 
         if first_base.is_idle:
             min_minerals = 225 + larvae.amount * 75
@@ -320,7 +320,7 @@ class RavagerStrategy:
         army_count = (self.bot.units(UnitTypeId.ROACH).amount + self.bot.units(UnitTypeId.RAVAGER).amount)
 
         if (army_count > 0 or (
-                not self.bot.no_units_in_opponent_main() and self.bot.time > 100)) and self.bot.need_to_attack_main_base:
+                not self.bot.unit_helper.no_units_in_opponent_main() and self.bot.time > 100)) and self.bot.need_to_attack_main_base:
 
             for unit in forces:
                 for unit_in_known in list(self.bot.known_enemy_u):
@@ -328,8 +328,8 @@ class RavagerStrategy:
                         self.bot.known_enemy_u.remove(unit_in_known)
 
                 if self.bot.enemy_units.exists:
-                    closest_enemy_to_unit = self.bot.closest_enemy_unit(unit)
-                    closest_enemy_to_base = self.bot.closest_enemy_unit(self.bot.townhalls.first)
+                    closest_enemy_to_unit = self.bot.combat_helper.closest_enemy_unit(unit)
+                    closest_enemy_to_base = self.bot.combat_helper.closest_enemy_unit(self.bot.townhalls.first)
                     enemy_near_home_and_unit = (
                             get_distance(closest_enemy_to_base.position, self.bot.townhalls.first.position) < 12 and
                             get_distance(closest_enemy_to_base.position, unit.position) < 13)
@@ -345,7 +345,7 @@ class RavagerStrategy:
                     if (len(self.bot.known_enemy_u) > 0 and
                             (enemy_is_close or enemy_near_home_and_unit) and
                             (not closest_enemy_to_base.is_flying) and
-                            (self.bot.time > 120 or self.bot.closest_unit_dist(unit=unit,
+                            (self.bot.time > 120 or self.bot.combat_helper.closest_unit_dist(unit=unit,
                                                                                units=dangerous_structures) > 10)):
                         self.bot.action_registry.submit_action(
                             tag=unit.tag,
@@ -364,20 +364,20 @@ class RavagerStrategy:
 
                     else:
                         if self.bot.enemy_race == Race.Zerg:
-                            self.bot.accurate_attack(unit, attack_on_way=True)
+                            self.bot.combat_helper.accurate_attack(unit, attack_on_way=True)
                         else:
-                            self.bot.accurate_attack(unit, need_additional_attack_command=False)
+                            self.bot.combat_helper.accurate_attack(unit, need_additional_attack_command=False)
 
                 else:
-                    self.bot.accurate_attack(unit, need_additional_attack_command=False)
+                    self.bot.combat_helper.accurate_attack(unit, need_additional_attack_command=False)
 
-            self.bot.manage_queen_attack()
+            self.bot.combat_helper.manage_queen_attack()
 
         elif not self.bot.need_to_attack_main_base:
-            await self.bot.find_final_structures(forces=forces,
+            await self.bot.combat_helper.find_final_structures(forces=forces,
                                                  army=(self.bot.units(UnitTypeId.ROACH) |
                                                        self.bot.units(UnitTypeId.RAVAGER) |
                                                        self.bot.units(UnitTypeId.OVERLORD)))
 
         if self.bot.need_to_attack_main_base:
-            await self.bot.is_opponents_main_won()
+            await self.bot.combat_helper.is_opponents_main_won()

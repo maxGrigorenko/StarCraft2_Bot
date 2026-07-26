@@ -10,6 +10,10 @@ from src.utils.coordinate_functions import *
 from src.strategies.roach_rush import RoachStrategy
 from src.strategies.ravager_rush import RavagerStrategy
 from src.strategies.zergling_drone_rush import ZerglingDroneStrategy
+from src.utils.unit_helpers import UnitHelper
+from src.utils.scouting_helpers import ScoutingHelper
+from src.utils.combat_helpers import CombatHelper
+from src.utils.economy_helpers import EconomyHelper
 
 import sc2
 from sc2.data import Difficulty
@@ -24,7 +28,6 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.game_info import GameInfo, Ramp
-from src.utils.universal_functions import sorted_enemy_locations
 
 
 class StrategyID(enum.Enum):
@@ -77,24 +80,15 @@ def choose_strategy(game_results: list):
 
 class SmallBly(BotAI):
 
-    from src.utils.speed_mining import speed_mining, refresh_mining_data, assign_mining_positions, \
-        check_reorganization, is_hatchery_for_mining, neighbor_mineral_fields, \
-        check_mineral_fields_near_base
-
-    from src.utils.universal_functions import refresh_unit, enemy_dangerous_structures, \
-        dangerous_structures_exist, select_target, get_locations, base_scout, \
-        is_units_health_max, all_flying_enemies, all_known_structures_flying, \
-        closest_enemy_unit, closest_unit, sorted_enemy_locations, \
-        map_scout, need_group, group_units, defending, micro_element, queen_management, \
-        no_units_in_opponent_main, proxy, mining_iteration, find_final_structures, \
-        is_opponents_main_won, manage_queen_attack, find_expand, has_expand_ramp, \
-        accurate_attack, closest_unit_dist, air_danger_units, macro_element, remove_idle_drones_tags, dodge_corrosive_bile
-
     def __init__(self):
         super().__init__()
         self.overlord_manager = OverlordManager(self)
         self.ravager_manager = RavagerManager()
         self.action_registry = ActionRegistry()
+        self.unit_helper = UnitHelper(self)
+        self.scouting_helper = ScoutingHelper(self)
+        self.combat_helper = CombatHelper(self)
+        self.economy_helper = EconomyHelper(self)
         self.need_to_attack_main_base = True
         self.in_scout_tags = []
         self.location_counter = 0
@@ -145,7 +139,7 @@ class SmallBly(BotAI):
     def read_and_choose_strategy(self):
         opponent_id = self.opponent_id
         if opponent_id is None:
-            self.strategy = StrategyID.ZERGLING_DRONE_RUSH
+            self.strategy = StrategyID.RAVAGER_RUSH
             return
 
         with open("data/statistics.txt") as f:
@@ -198,12 +192,12 @@ class SmallBly(BotAI):
             sorted_ramps = sorted(self.game_info.map_ramps,
                                   key=lambda x: get_distance(x.top_center, self.enemy_start_locations[0].position))
             self.two_enemy_ramps = sorted_ramps[:2]
-            self.expand_rump_exist = self.has_expand_ramp()
+            self.expand_rump_exist = self.scouting_helper.has_expand_ramp()
             print(self.expand_rump_exist)
 
             self.overlord_manager.load_data(own_start_location=self.start_location,
                                             enemy_start_location=self.enemy_start_locations[0],
-                                            enemy_locations=self.sorted_enemy_locations(),
+                                            enemy_locations=self.scouting_helper.sorted_enemy_locations(),
                                             enemy_ramp=self.two_enemy_ramps[0],
                                             enemy_expand=self.expand,
                                             enemy_race=self.enemy_race)
@@ -217,7 +211,7 @@ class SmallBly(BotAI):
         elif self.strategy == StrategyID.RAVAGER_RUSH:
             await self.ravager_strategy.ravager_rush_step(iteration=iteration)
 
-        self.dodge_corrosive_bile()
+        self.combat_helper.dodge_corrosive_bile()
 
         for action_func in self.action_registry.resolve():
             action_func()
@@ -235,10 +229,10 @@ TODO:
 
 def main():
     run_game(sc2.maps.get("PylonAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
-        Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
+        # Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4
         # Bot(Race.Zerg, SmallBly()),               # TorchesAIE_v4; PylonAIE_v4; MagannathaAIE_v2
         Bot(Race.Zerg, SmallBly()),
-        # Computer(Race.Terran, Difficulty.CheatInsane),
+        Computer(Race.Terran, Difficulty.CheatInsane),
     ], realtime=False,
              disable_fog=False,
              random_seed=0,
