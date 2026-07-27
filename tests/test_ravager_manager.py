@@ -170,31 +170,36 @@ class TestFindBileTarget:
         ravager = make_mock_unit(UnitTypeId.RAVAGER, (10, 10))
         cannon = make_mock_structure(UnitTypeId.PHOTONCANNON, (15, 10))  # distance 5
         stalker = make_mock_unit(UnitTypeId.STALKER, (12, 10))  # distance 2
-        result = find_bile_target(ravager, [cannon], [stalker], own_units=[])
+        result = find_bile_target(ravager, [cannon], [stalker], own_units=[],
+                                  bile_effects=[], enemy_structures=[])
         assert result == cannon  # priority target preferred
 
     def test_no_priority_falls_back_to_other(self):
         ravager = make_mock_unit(UnitTypeId.RAVAGER, (10, 10))
         stalker = make_mock_unit(UnitTypeId.STALKER, (12, 10))
-        result = find_bile_target(ravager, [], [stalker], own_units=[])
+        result = find_bile_target(ravager, [], [stalker], own_units=[],
+                                  bile_effects=[], enemy_structures=[])
         assert result == stalker
 
     def test_target_out_of_range(self):
         ravager = make_mock_unit(UnitTypeId.RAVAGER, (10, 10))
         cannon = make_mock_structure(UnitTypeId.PHOTONCANNON, (30, 10))  # distance 20
-        result = find_bile_target(ravager, [cannon], [], own_units=[])
+        result = find_bile_target(ravager, [cannon], [], own_units=[],
+                                  bile_effects=[], enemy_structures=[])
         assert result is None
 
     def test_closest_priority_target_selected(self):
         ravager = make_mock_unit(UnitTypeId.RAVAGER, (10, 10))
         cannon_far = make_mock_structure(UnitTypeId.PHOTONCANNON, (18, 10))  # distance 8
         cannon_close = make_mock_structure(UnitTypeId.PHOTONCANNON, (14, 10))  # distance 4
-        result = find_bile_target(ravager, [cannon_far, cannon_close], [], own_units=[])
+        result = find_bile_target(ravager, [cannon_far, cannon_close], [], own_units=[],
+                                  bile_effects=[], enemy_structures=[])
         assert result == cannon_close
 
     def test_no_targets(self):
         ravager = make_mock_unit(UnitTypeId.RAVAGER, (10, 10))
-        result = find_bile_target(ravager, [], [], own_units=[])
+        result = find_bile_target(ravager, [], [], own_units=[],
+                                  bile_effects=[], enemy_structures=[])
         assert result is None
 
 
@@ -209,5 +214,3 @@ class TestGetDangerousStructures:
         assert bunker in result
         assert spore not in result
         assert pylon not in result
-
-
