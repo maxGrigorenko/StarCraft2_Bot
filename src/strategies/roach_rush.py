@@ -118,6 +118,99 @@ class RoachStrategy(BaseStrategy):
                     )
                 continue
 
+    # ------------------------------------------------------------------
+    # Helper methods
+    # ------------------------------------------------------------------
+    def _update_drone_production(self):
+        stop = False
+        resume = False
+        drone_amount = self.bot.supply_workers
+        pool_exists = self.bot.structures(UnitTypeId.SPAWNINGPOOL).exists or self.bot.already_pending(
+            UnitTypeId.SPAWNINGPOOL)
+        extractor_exists = self.bot.structures(UnitTypeId.EXTRACTOR).exists or self.bot.already_pending(
+            UnitTypeId.EXTRACTOR)
+        dangerous_structures = self.bot.unit_helper.dangerous_structures_exist()
+
+        if self.bot.stop_drone:
+            if pool_exists and extractor_exists and (drone_amount < 14 or self.bot.need_air_units):
+                resume = True
+        else:
+            if (drone_amount >= 14 or not pool_exists) and not dangerous_structures:
+                stop = True
+
+        if stop:
+            self.bot.stop_drone = True
+        elif resume:
+            self.bot.stop_drone = False
+
+    def _roach_attack_micro(self, unit, dangerous_structures):
+        self.update_known_enemies()
+
+        if not self.bot.enemy_units.exists:
+            self.bot.combat_helper.accurate_attack(unit, attack_on_way=False)
+            return
+
+        closest_enemy_to_unit = self.bot.combat_helper.closest_enemy_unit(unit)
+        closest_enemy_to_base = self.bot.combat_helper.closest_enemy_unit(self.bot.townhalls.first)
+        enemy_near_home_and_unit = (get_distance(closest_enemy_to_base.position,
+                                                 self.bot.townhalls.first.position) < 12 and
+                                    get_distance(closest_enemy_to_base.position, unit.position) < 13)
+        enemy_is_close = get_distance(unit.position, closest_enemy_to_unit.position) < 5
+
+        need_to_run_deep = ((self.bot.time < 210) and
+                            (self.bot.combat_helper.closest_unit_dist(unit=unit,
+                                                                      units=dangerous_structures) < 15) and
+                            (get_distance(unit.position, self.bot.enemy_start_locations[0].position) > 8))
+
+        if self.bot.units(UnitTypeId.ROACHBURROWED).amount >= 1 and \
+                get_distance(self.bot.unit_helper.closest_unit(
+                    self.bot.units(UnitTypeId.ROACHBURROWED), unit
+                ).position, unit.position) < 1.25 and \
+                self.bot.units(UnitTypeId.ROACH).amount < 15 and \
+                self.bot.units(UnitTypeId.QUEEN).amount < 3 and \
+                not need_to_run_deep:
+            self.bot.action_registry.submit_action(
+                tag=unit.tag,
+                action=lambda u=unit, p=self.bot.townhalls.first.position: u.move(p),
+                priority=ActionPriority.NORMAL,
+                source="roach_rush_step"
+            )
+            return
+
+        if (len(self.bot.known_enemy_u) > 0 and
+                (enemy_is_close or enemy_near_home_and_unit) and
+                (not closest_enemy_to_base.is_flying) and
+                (self.bot.time > 150 or self.bot.combat_helper.closest_unit_dist(
+                    unit=unit, units=dangerous_structures) > 10) and
+                (not need_to_run_deep)):
+            self.bot.action_registry.submit_action(
+                tag=unit.tag,
+                action=lambda u=unit, p=closest_enemy_to_base.position: u.attack(p),
+                priority=ActionPriority.NORMAL,
+                source="roach_rush_step"
+            )
+            return
+
+        if get_distance(unit.position, self.bot.enemy_start_locations[0]) < 7:
+            self.bot.action_registry.submit_action(
+                tag=unit.tag,
+                action=lambda u=unit, p=self.bot.enemy_start_locations[0].position: u.attack(p),
+                priority=ActionPriority.NORMAL,
+                source="roach_rush_step"
+            )
+            return
+
+        if ((unit.health_max - unit.health > 0) and
+                not (self.bot.time < 150 and self.bot.combat_helper.closest_unit_dist(
+                    unit=unit, units=dangerous_structures) < 10) and
+                not need_to_run_deep):
+            self.bot.combat_helper.accurate_attack(unit, attack_on_way=True)
+        else:
+            self.bot.combat_helper.accurate_attack(unit, attack_on_way=False)
+
+    # ------------------------------------------------------------------
+    # Main step
+    # ------------------------------------------------------------------
     async def roach_rush_step(self, iteration):
         await self.bot.economy_helper.mining_iteration()
         await self.bot.overlord_manager.manage(overlords=self.bot.units(UnitTypeId.OVERLORD),
@@ -148,19 +241,7 @@ class RoachStrategy(BaseStrategy):
         else:
             self.bot.defence = False
 
-        if (not self.bot.stop_drone) and (
-                self.bot.supply_workers >= 14 or
-                (not (self.bot.structures(UnitTypeId.SPAWNINGPOOL).exists or self.bot.already_pending(UnitTypeId.SPAWNINGPOOL)))) \
-                and not self.bot.unit_helper.dangerous_structures_exist():
-            self.bot.stop_drone = True
-
-        elif self.bot.stop_drone and (
-                self.bot.structures(UnitTypeId.SPAWNINGPOOL).exists or self.bot.already_pending(
-            UnitTypeId.SPAWNINGPOOL)) and (
-                self.bot.structures(UnitTypeId.EXTRACTOR).exists or self.bot.already_pending(
-            UnitTypeId.EXTRACTOR)) and (
-                self.bot.supply_workers < 14 or self.bot.need_air_units):
-            self.bot.stop_drone = False
+        self._update_drone_production()
 
         if iteration == 30:
             await self.bot.chat_send("gl hf!")
@@ -284,67 +365,12 @@ class RoachStrategy(BaseStrategy):
             )
 
         # ATTACK
-
-        if (self.bot.units(UnitTypeId.ROACH).amount > 0 or (
-                not self.bot.unit_helper.no_units_in_opponent_main() and self.bot.time > 100)) and self.bot.need_to_attack_main_base:
+        army_roach = self.bot.units(UnitTypeId.ROACH).amount
+        if self.should_attack_main_base(army_roach):
 
             for unit in forces:
                 if unit.tag not in self.bot.in_burrow_process_tags:
-                    self.update_known_enemies()
-
-                    if self.bot.enemy_units.exists:
-                        closest_enemy_to_unit = self.bot.combat_helper.closest_enemy_unit(unit)
-                        closest_enemy_to_base = self.bot.combat_helper.closest_enemy_unit(self.bot.townhalls.first)
-                        enemy_near_home_and_unit = (get_distance(closest_enemy_to_base.position, self.bot.townhalls.first.position) < 12 and
-                                 get_distance(closest_enemy_to_base.position, unit.position) < 13)
-                        enemy_is_close = get_distance(unit.position, closest_enemy_to_unit.position) < 5
-
-                        need_to_run_deep = ((self.bot.time < 210) and
-                                            (self.bot.combat_helper.closest_unit_dist(unit=unit, units=dangerous_structures) < 15) and
-                                            (get_distance(unit.position, self.bot.enemy_start_locations[0].position) > 8))
-
-                        if self.bot.units(UnitTypeId.ROACHBURROWED).amount >= 1 and \
-                                get_distance(self.bot.unit_helper.closest_unit(self.bot.units(UnitTypeId.ROACHBURROWED), unit).position, unit.position) < 1.25 and \
-                                self.bot.units(UnitTypeId.ROACH).amount < 15 and self.bot.units(UnitTypeId.QUEEN).amount < 3 and \
-                                not need_to_run_deep:
-                            self.bot.action_registry.submit_action(
-                                tag=unit.tag,
-                                action=lambda u=unit, p=self.bot.townhalls.first.position: u.move(p),
-                                priority=ActionPriority.NORMAL,
-                                source="roach_rush_step"
-                            )
-
-                        elif (len(self.bot.known_enemy_u) > 0 and
-                              (enemy_is_close or enemy_near_home_and_unit) and
-                              (not closest_enemy_to_base.is_flying) and
-                              (self.bot.time > 150 or self.bot.combat_helper.closest_unit_dist(unit=unit, units=dangerous_structures) > 10) and
-                              (not need_to_run_deep)):
-                            self.bot.action_registry.submit_action(
-                                tag=unit.tag,
-                                action=lambda u=unit, p=closest_enemy_to_base.position: u.attack(p),
-                                priority=ActionPriority.NORMAL,
-                                source="roach_rush_step"
-                            )
-
-                        elif get_distance(unit.position, self.bot.enemy_start_locations[0]) < 7:
-                            self.bot.action_registry.submit_action(
-                                tag=unit.tag,
-                                action=lambda u=unit, p=self.bot.enemy_start_locations[0].position: u.attack(p),
-                                priority=ActionPriority.NORMAL,
-                                source="roach_rush_step"
-                            )
-
-                        elif ((unit.health_max - unit.health > 0) and
-                              not (self.bot.time < 150 and self.bot.combat_helper.closest_unit_dist(unit=unit,
-                                                                                      units=dangerous_structures) < 10) and
-                              not need_to_run_deep):
-                            self.bot.combat_helper.accurate_attack(unit, attack_on_way=True)
-
-                        else:
-                            self.bot.combat_helper.accurate_attack(unit, attack_on_way=False)
-
-                    else:
-                        self.bot.combat_helper.accurate_attack(unit, attack_on_way=False)
+                    self._roach_attack_micro(unit, dangerous_structures)
 
             self.bot.combat_helper.manage_queen_attack()
 

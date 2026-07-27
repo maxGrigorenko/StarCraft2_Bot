@@ -247,6 +247,101 @@ class ZerglingDroneStrategy(BaseStrategy):
                             source="wall_breaker_move_to_second_loc"
                         )
 
+    # ------------------------------------------------------------------
+    # Small helper methods for readability
+    # ------------------------------------------------------------------
+
+    def _update_drone_production(self):
+        stop = False
+        resume = False
+        drone_amount = self.bot.units(UnitTypeId.DRONE).amount
+        pool_exists = self.bot.structures(UnitTypeId.SPAWNINGPOOL).exists or self.bot.already_pending(
+            UnitTypeId.SPAWNINGPOOL)
+        dangerous_structures = self.bot.unit_helper.dangerous_structures_exist()
+
+        if self.bot.stop_drone:
+            if pool_exists and (drone_amount != 14 or self.bot.need_air_units) and not self.bot.defence:
+                resume = True
+        else:
+            if (drone_amount == 14 or not pool_exists) and not dangerous_structures:
+                stop = True
+
+        if stop:
+            self.bot.stop_drone = True
+        elif resume:
+            self.bot.stop_drone = False
+
+    def _should_attack_main(self):
+        return self.should_attack_main_base(self.bot.units(UnitTypeId.ZERGLING).amount)
+
+    def _should_drone_attack_egg(self):
+        return (self.bot.stop_drone and
+                self.bot.units(UnitTypeId.OVERLORD).amount == 2 and
+                self.bot.units(UnitTypeId.EGG).exists and
+                self.bot.time < self.bot.stop_new_drone_attack_time)
+
+    async def _start_drone_attack(self):
+        eggs = self.bot.units(UnitTypeId.EGG)
+        if eggs.amount == 4:
+            for drone in self.bot.units(UnitTypeId.DRONE):
+                if (drone.tag not in self.bot.home_dronny_tags and
+                        drone.tag not in self.bot.wall_breakers_tags and
+                        not drone.is_carrying_resource):
+                    self.bot.action_registry.submit_action(
+                        tag=drone.tag,
+                        action=lambda d=drone, target=self.bot.enemy_start_locations[0]: d.move(target),
+                        priority=ActionPriority.NORMAL,
+                        source="start_attack_drone_move"
+                    )
+                    if drone.tag not in self.bot.attack_drones_tags:
+                        self.bot.attack_drones_tags.append(drone.tag)
+            self.bot.stop_new_drone_attack_time = self.bot.time + 8
+
+    def _wall_breaker_should_run(self):
+        return (self.bot.units(UnitTypeId.OVERLORD).exists and
+                self.bot.need_to_attack_main_base and
+                not self.bot.stop_wall_breaker)
+
+    def _wall_breaker_begin_time(self):
+        if self.bot.enemy_race == Race.Terran:
+            return 55
+        elif self.bot.enemy_race == Race.Protoss:
+            return 45
+        elif self.bot.enemy_race == Race.Zerg:
+            return 35
+        else:  # Race.Random
+            return 45
+
+    def _zergling_attack_micro(self, unit):
+        self.update_known_enemies()
+
+        if self.bot.enemy_units.exists:
+            if len(self.bot.known_enemy_u) > 0 and get_distance(
+                    unit.position, self.bot.combat_helper.closest_enemy_unit(unit).position) < 3:
+                closest_enemy = self.bot.combat_helper.closest_enemy_unit(unit)
+                self.bot.action_registry.submit_action(
+                    tag=unit.tag,
+                    action=lambda u=unit, t=closest_enemy.position: u.attack(t),
+                    priority=ActionPriority.NORMAL,
+                    source="zergling_attack_closest_enemy"
+                )
+            elif get_distance(unit.position, self.bot.enemy_start_locations[0]) < 7:
+                self.bot.action_registry.submit_action(
+                    tag=unit.tag,
+                    action=lambda u=unit, target=self.bot.enemy_start_locations[0]: u.attack(target),
+                    priority=ActionPriority.NORMAL,
+                    source="zergling_attack_enemy_start"
+                )
+            elif unit.health_max - unit.health > 0:
+                self.bot.combat_helper.accurate_attack(unit, attack_on_way=True)
+            else:
+                self.bot.combat_helper.accurate_attack(unit, attack_on_way=False)
+        else:
+            self.bot.combat_helper.accurate_attack(unit, attack_on_way=False)
+
+    # ------------------------------------------------------------------
+    # Main step
+    # ------------------------------------------------------------------
     async def zergling_drone_rush_step(self, iteration):
         await self.bot.economy_helper.mining_iteration()
         await self.bot.overlord_manager.manage(overlords=self.bot.units(UnitTypeId.OVERLORD),
@@ -325,16 +420,7 @@ class ZerglingDroneStrategy(BaseStrategy):
 
         # BUILDORDER STOPS
 
-        if (not self.bot.stop_drone) and (self.bot.units(UnitTypeId.DRONE).amount == 14 or (not (
-                self.bot.structures(UnitTypeId.SPAWNINGPOOL).exists or self.bot.already_pending(
-            UnitTypeId.SPAWNINGPOOL)))) and not self.bot.unit_helper.dangerous_structures_exist():
-            self.bot.stop_drone = True
-
-        elif self.bot.stop_drone and (
-                self.bot.structures(UnitTypeId.SPAWNINGPOOL).exists or self.bot.already_pending(
-            UnitTypeId.SPAWNINGPOOL)) and (
-                self.bot.units(UnitTypeId.DRONE).amount != 14 or self.bot.need_air_units) and not self.bot.defence:
-            self.bot.stop_drone = False
+        self._update_drone_production()
 
         # BUILDING DRONES
 
@@ -403,23 +489,8 @@ class ZerglingDroneStrategy(BaseStrategy):
 
         # WALL BREAKER
 
-        if self.bot.units(UnitTypeId.OVERLORD).exists and self.bot.need_to_attack_main_base and \
-                not self.bot.stop_wall_breaker:
-
-            if self.bot.enemy_race == Race.Terran:
-                begin_time = 55
-
-            elif self.bot.enemy_race == Race.Protoss:
-                begin_time = 45
-
-            elif self.bot.enemy_race == Race.Zerg:
-                begin_time = 35
-
-            else:  # Race = Random
-                begin_time = 45
-
-            if self.bot.time > begin_time:
-
+        if self._wall_breaker_should_run():
+            if self.bot.time > self._wall_breaker_begin_time():
                 if self.bot.enemy_race != Race.Zerg:
                     await self.wall_breaker_do_block(breakers_quantity=1)
                 else:
@@ -454,9 +525,7 @@ class ZerglingDroneStrategy(BaseStrategy):
 
         # ATTACK
 
-        if (self.bot.units(UnitTypeId.ZERGLING).amount > 0 or (
-                not self.bot.unit_helper.no_units_in_opponent_main() and self.bot.time > 100)) and \
-                self.bot.need_to_attack_main_base:
+        if self._should_attack_main():
             # group
             if not self.bot.stop_group and self.bot.units(UnitTypeId.ZERGLING).amount <= 25:
                 middle_unit = self.bot.unit_helper.closest_unit(self.bot.units(UnitTypeId.ZERGLING),
@@ -482,35 +551,7 @@ class ZerglingDroneStrategy(BaseStrategy):
                 if unit.is_carrying_resource:
                     continue
 
-                self.update_known_enemies()
-
-                if self.bot.enemy_units.exists:
-                    if len(self.bot.known_enemy_u) > 0 and get_distance(
-                            unit.position, self.bot.combat_helper.closest_enemy_unit(unit).position) < 3:
-                        closest_enemy = self.bot.combat_helper.closest_enemy_unit(unit)
-                        self.bot.action_registry.submit_action(
-                            tag=unit.tag,
-                            action=lambda u=unit, t=closest_enemy.position: u.attack(t),
-                            priority=ActionPriority.NORMAL,
-                            source="zergling_attack_closest_enemy"
-                        )
-
-                    elif get_distance(unit.position, self.bot.enemy_start_locations[0]) < 7:
-                        self.bot.action_registry.submit_action(
-                            tag=unit.tag,
-                            action=lambda u=unit, target=self.bot.enemy_start_locations[0]: u.attack(target),
-                            priority=ActionPriority.NORMAL,
-                            source="zergling_attack_enemy_start"
-                        )
-
-                    elif unit.health_max - unit.health > 0:
-                        self.bot.combat_helper.accurate_attack(unit, attack_on_way=True)
-
-                    else:
-                        self.bot.combat_helper.accurate_attack(unit, attack_on_way=False)
-
-                else:
-                    self.bot.combat_helper.accurate_attack(unit, attack_on_way=False)
+                self._zergling_attack_micro(unit)
 
             self.bot.combat_helper.manage_queen_attack()
 
@@ -521,25 +562,8 @@ class ZerglingDroneStrategy(BaseStrategy):
             )
 
         # STARTING ATTACK
-        elif self.bot.stop_drone and self.bot.units(UnitTypeId.OVERLORD).amount == 2 and self.bot.units(
-                UnitTypeId.EGG).exists and self.bot.time < self.bot.stop_new_drone_attack_time:
-
-            eggs = self.bot.units(UnitTypeId.EGG)
-            if eggs.amount == 4:
-                for drone in self.bot.units(UnitTypeId.DRONE):
-                    if drone.tag not in self.bot.home_dronny_tags and \
-                            drone.tag not in self.bot.wall_breakers_tags and \
-                            not drone.is_carrying_resource:
-                        self.bot.action_registry.submit_action(
-                            tag=drone.tag,
-                            action=lambda d=drone, target=self.bot.enemy_start_locations[0]: d.move(target),
-                            priority=ActionPriority.NORMAL,
-                            source="start_attack_drone_move"
-                        )
-                        if drone.tag not in self.bot.attack_drones_tags:
-                            self.bot.attack_drones_tags.append(drone.tag)
-
-                self.bot.stop_new_drone_attack_time = self.bot.time + 8
+        elif self._should_drone_attack_egg():
+            await self._start_drone_attack()
 
         if self.bot.need_to_attack_main_base:
             await self.bot.combat_helper.is_opponents_main_won()

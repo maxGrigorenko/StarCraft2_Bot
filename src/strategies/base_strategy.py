@@ -14,6 +14,12 @@ class BaseStrategy:
                 self.bot.enemy_structures(UnitTypeId.BUNKER) |
                 self.bot.enemy_structures(UnitTypeId.SPINECRAWLER))
 
+    def should_attack_main_base(self, army_count):
+        """Return True if there are army units or opponent main is known and time conditions are met."""
+        return (army_count > 0 or (
+                not self.bot.unit_helper.no_units_in_opponent_main() and self.bot.time > 100)
+                ) and self.bot.need_to_attack_main_base
+
     def find_dronny(self):
         """Get current building-drone unit from bot.dronny_tag, or pick a new one closest to enemy start."""
         dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
