@@ -218,15 +218,6 @@ class SmallBly(BotAI):
         self.action_registry.clear()
 
 
-'''
-TODO:
-1) bug, after defending against scout probe drones stop and do nothing (see games against nida) # DONE
-2) bug, when drone can't start building roach warren in roach_rush (also see after defending against worker rush) (see 48 minutes game against JimmyBot) # DONE
-3) bug, when queens do not attack (see Tie against BenBotBC)
-4) add drones micro for defence # DONE
-'''
-
-
 def main():
     run_game(sc2.maps.get("PylonAIE_v4"), [  # 2000AtmospheresAIE ; CatalystLE ; AbyssalReefLE
         # Human(Race.Terran),                         # JagannathaAIE ; BlackburnAIE ; OxideAIE ; PersephoneAIE_v4

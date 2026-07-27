@@ -5,11 +5,12 @@ from sc2.data import Race
 from src.managers.ravager_manager import find_closest_enemy, calculate_retreat_position
 from src.managers.action_registry import ActionPriority
 from src.utils.coordinate_functions import get_distance, go_from_point, radius_go_from_point
+from src.strategies.base_strategy import BaseStrategy
 
 
-class RoachStrategy:
+class RoachStrategy(BaseStrategy):
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
         self.sp_position = None
 
     def burrow_micro(self):
@@ -90,9 +91,6 @@ class RoachStrategy:
     async def roach_micro_management(self):
         roaches = self.bot.units(UnitTypeId.ROACH)
         ground_enemies = [u for u in self.bot.enemy_units if not u.is_flying and not u.is_hallucination]
-        dangerous_structures = (self.bot.enemy_structures(UnitTypeId.PHOTONCANNON) |
-                                self.bot.enemy_structures(UnitTypeId.BUNKER) |
-                                self.bot.enemy_structures(UnitTypeId.SPINECRAWLER))
 
         for roach in roaches:
             closest_enemy = find_closest_enemy(roach, ground_enemies)
@@ -136,24 +134,14 @@ class RoachStrategy:
         with_drone_forces = self.bot.units(UnitTypeId.DRONE) | self.bot.units(UnitTypeId.ZERGLING) | self.bot.units(UnitTypeId.ROACH) | self.bot.units(
             UnitTypeId.MUTALISK)
         larvae = self.bot.units(UnitTypeId.LARVA)
-        dangerous_structures = (self.bot.enemy_structures(UnitTypeId.PHOTONCANNON) |
-                                self.bot.enemy_structures(UnitTypeId.BUNKER) |
-                                self.bot.enemy_structures(UnitTypeId.SPINECRAWLER))
+        dangerous_structures = self.dangerous_structures()
 
-        if not self.bot.townhalls.exists:
-            for unit in self.bot.units(UnitTypeId.QUEEN) | with_drone_forces:
-                self.bot.action_registry.submit_action(
-                    tag=unit.tag,
-                    action=lambda u=unit, p=self.bot.enemy_start_locations[0].position: u.attack(p),
-                    priority=ActionPriority.NORMAL,
-                    source="roach_rush_step"
-                )
+        if self.emergency_attack_no_townhalls(with_drone_forces):
             return
-        else:
-            first_base = self.bot.townhalls.first
-            if first_base.health < 401:
-                self.bot.unit_helper.proxy()
-                return
+
+        first_base = self.bot.townhalls.first
+        if self.check_main_base_health():
+            return
 
         if not self.bot.units(UnitTypeId.ROACH).exists:
             await self.bot.combat_helper.defending()
@@ -189,103 +177,26 @@ class RoachStrategy:
                     (self.bot.time < 70 and self.bot.supply_used < 14) or self.bot.structures(UnitTypeId.ROACHWARREN).ready.exists):
                 self.bot.train(UnitTypeId.DRONE)
 
-        dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
-        if not dronny:
-            drones_without_minerals = [unit for unit in self.bot.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
-            if len(drones_without_minerals) >= 1:
-                chosen = self.bot.unit_helper.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
-                self.bot.dronny_tag = chosen.tag if chosen else None
-                dronny = chosen
+        dronny = self.find_dronny()
 
         # BUILDING SPAWNING POOL
 
-        if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount + self.bot.already_pending(UnitTypeId.SPAWNINGPOOL) == 0:
-            dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
-            distance = 8
-            if self.bot.time < 70 and dronny is not None:
-                if 200 > self.bot.minerals > 140 and not dronny.is_carrying_resource and get_distance(dronny.position,
-                                                                                                      self.bot.start_location) < distance:
-                    self.bot.action_registry.submit_action(
-                        tag=dronny.tag,
-                        action=lambda u=dronny, p=self.bot.enemy_start_locations[0].position: u.move(p),
-                        priority=ActionPriority.LOW,
-                        source="roach_rush_step"
-                    )
-                    if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
-
-                elif self.bot.can_afford(UnitTypeId.SPAWNINGPOOL):
-                    self.bot.action_registry.submit_action(
-                        tag=dronny.tag,
-                        action=lambda u=dronny, tid=UnitTypeId.SPAWNINGPOOL, near_pos=dronny.position: u.build(tid, near_pos),
-                        priority=ActionPriority.HIGH,
-                        source="roach_rush_step"
-                    )
-                    if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
-                    self.sp_position = dronny.position
-
-                elif get_distance(dronny.position, self.bot.start_location) >= distance and self.bot.minerals > 160:
-                    self.bot.action_registry.submit_action(
-                        tag=dronny.tag,
-                        action=lambda u=dronny, p=dronny.position: u.move(p),
-                        priority=ActionPriority.LOW,
-                        source="roach_rush_step"
-                    )
-
-            elif self.bot.minerals >= 200 and self.bot.units(UnitTypeId.DRONE).amount > 0 and dronny is not None:
-                self.bot.action_registry.submit_action(
-                    tag=dronny.tag,
-                    action=lambda u=dronny, tid=UnitTypeId.SPAWNINGPOOL, near_pos=first_base.position: u.build(tid, near_pos),
-                    priority=ActionPriority.HIGH,
-                    source="roach_rush_step"
-                )
-                if dronny.tag not in self.bot.building_workers_tags:
-                    self.bot.building_workers_tags.append(dronny.tag)
+        pool_position = self.build_spawning_pool(dronny, first_base)
+        if pool_position is not None:
+            self.sp_position = pool_position
 
         # BUILDING EXTRACTOR
 
-        if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
-                (self.bot.structures(UnitTypeId.EXTRACTOR).amount + self.bot.already_pending(UnitTypeId.EXTRACTOR) == 0):
-            dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
-            if self.bot.can_afford(UnitTypeId.EXTRACTOR) and dronny is not None:
-                target = self.bot.vespene_geyser.closest_to(dronny.position)
-                self.bot.action_registry.submit_action(
-                    tag=dronny.tag,
-                    action=lambda u=dronny, tgt=target, tid=UnitTypeId.EXTRACTOR: u.build(tid, tgt),
-                    priority=ActionPriority.HIGH,
-                    source="roach_rush_step"
-                )
-                if dronny.tag not in self.bot.building_workers_tags:
-                    self.bot.building_workers_tags.append(dronny.tag)
+        dronny = self.find_dronny()
+        self.build_first_extractor(dronny)
 
-        for extractor in self.bot.structures(UnitTypeId.EXTRACTOR):
-            if extractor.assigned_harvesters < extractor.ideal_harvesters and \
-                    self.bot.structures(UnitTypeId.EXTRACTOR).ready.exists and not self.bot.defence:
-                w = self.bot.workers.closer_than(6, extractor)
-                if w.exists:
-                    drone = w.random
-                    if drone.tag != self.bot.dronny_tag:
-                        self.bot.action_registry.submit_action(
-                            tag=drone.tag,
-                            action=lambda u=drone, extr=extractor: u.gather(extr),
-                            priority=ActionPriority.LOW,
-                            source="roach_rush_step"
-                        )
-                        if drone.tag not in self.bot.drones_on_gas_tags:
-                            self.bot.drones_on_gas_tags.append(drone.tag)
+        self.assign_gas_gatherers()
 
         # BUILDING ROACH WARREN
 
         if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount >= 1 and \
                 (self.bot.structures(UnitTypeId.ROACHWARREN).amount + self.bot.already_pending(UnitTypeId.ROACHWARREN) == 0):
-            dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
-            if not dronny:
-                drones_without_minerals = [unit for unit in self.bot.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
-                if len(drones_without_minerals) >= 1:
-                    chosen = self.bot.unit_helper.closest_unit(drones_without_minerals, self.bot.enemy_start_locations[0])
-                    self.bot.dronny_tag = chosen.tag if chosen else None
-                    dronny = chosen
+            dronny = self.find_dronny()
 
             distance = 8
             if dronny is not None:
@@ -311,14 +222,12 @@ class RoachStrategy:
                         priority=ActionPriority.LOW,
                         source="roach_rush_step"
                     )
-                    if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
+                    self.mark_building_worker(dronny.tag)
 
                 elif self.bot.structures(UnitTypeId.SPAWNINGPOOL).ready.exists and self.bot.can_afford(
                         UnitTypeId.ROACHWARREN):
                     await self.bot.build(UnitTypeId.ROACHWARREN, build_worker=dronny, near=dronny)
-                    if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
+                    self.mark_building_worker(dronny.tag)
 
                 elif get_distance(dronny.position, self.bot.start_location) >= distance:
                     self.bot.action_registry.submit_action(
@@ -348,17 +257,8 @@ class RoachStrategy:
                     source="roach_rush_step"
                 )
 
-        if (self.bot.supply_left <= 0 or (
-                self.bot.units(UnitTypeId.DRONE).amount >= 14 and self.bot.supply_left <= 1)) and \
-                not self.bot.already_pending(UnitTypeId.OVERLORD):
-            if self.bot.can_afford(UnitTypeId.OVERLORD) and larvae.exists:
-                larva = larvae.random
-                self.bot.action_registry.submit_action(
-                    tag=larva.tag,
-                    action=lambda u=larva, tid=UnitTypeId.OVERLORD: u.train(tid),
-                    priority=ActionPriority.HIGH,
-                    source="roach_rush_step"
-                )
+        extra_condition = self.bot.units(UnitTypeId.DRONE).amount >= 14
+        self.train_overlord_if_needed(larvae, supply_threshold=1, extra_condition=True)
 
         if self.bot.already_pending_upgrade(UpgradeId.BURROW) == 0 and self.bot.can_afford(
                 UpgradeId.BURROW
@@ -390,9 +290,7 @@ class RoachStrategy:
 
             for unit in forces:
                 if unit.tag not in self.bot.in_burrow_process_tags:
-                    for unit_in_known in list(self.bot.known_enemy_u):
-                        if unit_in_known not in self.bot.enemy_units:
-                            self.bot.known_enemy_u.remove(unit_in_known)
+                    self.update_known_enemies()
 
                     if self.bot.enemy_units.exists:
                         closest_enemy_to_unit = self.bot.combat_helper.closest_enemy_unit(unit)
@@ -400,13 +298,6 @@ class RoachStrategy:
                         enemy_near_home_and_unit = (get_distance(closest_enemy_to_base.position, self.bot.townhalls.first.position) < 12 and
                                  get_distance(closest_enemy_to_base.position, unit.position) < 13)
                         enemy_is_close = get_distance(unit.position, closest_enemy_to_unit.position) < 5
-
-                        for enemy_unit in self.bot.enemy_units:
-                            if (enemy_unit not in self.bot.known_enemy_u) and (
-                                    enemy_unit not in self.bot.enemy_structures) and (
-                                    enemy_unit not in self.bot.enemy_units(UnitTypeId.LARVA)) and (
-                                    not enemy_unit.is_flying):
-                                self.bot.known_enemy_u.append(enemy_unit)
 
                         need_to_run_deep = ((self.bot.time < 210) and
                                             (self.bot.combat_helper.closest_unit_dist(unit=unit, units=dangerous_structures) < 15) and

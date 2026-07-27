@@ -4,12 +4,13 @@ from sc2.data import Race, ActionResult
 from sc2.ids.ability_id import AbilityId
 from src.utils.coordinate_functions import *
 from src.managers.action_registry import ActionPriority
+from src.strategies.base_strategy import BaseStrategy
 
 
-class ZerglingDroneStrategy:
+class ZerglingDroneStrategy(BaseStrategy):
 
     def __init__(self, bot):
-        self.bot = bot
+        super().__init__(bot)
 
     def prominent_structures(self):
         if self.bot.enemy_race == Race.Terran:
@@ -310,20 +311,12 @@ class ZerglingDroneStrategy:
                     )
             return
 
-        if not self.bot.townhalls.exists:
-            for unit in self.bot.units(UnitTypeId.QUEEN) | forces:
-                self.bot.action_registry.submit_action(
-                    tag=unit.tag,
-                    action=lambda u=unit, target=self.bot.enemy_start_locations[0]: u.attack(target),
-                    priority=ActionPriority.NORMAL,
-                    source="no_townhalls_attack"
-                )
+        if self.emergency_attack_no_townhalls(forces):
             return
-        else:
-            first_base = self.bot.townhalls.first
-            if first_base.health < 401:
-                self.bot.unit_helper.proxy()
-                return
+
+        first_base = self.bot.townhalls.first
+        if self.check_main_base_health():
+            return
 
         if not self.bot.units(UnitTypeId.ZERGLING).exists:
             await self.bot.combat_helper.defending()
@@ -358,73 +351,12 @@ class ZerglingDroneStrategy:
 
         # BUILDING SPAWNING POOL
 
-        dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
-        if not dronny:
-            candidates = [unit for unit in self.bot.units(UnitTypeId.DRONE) if not unit.is_carrying_resource]
-            if len(candidates) > 0:
-                chosen = self.bot.unit_helper.closest_unit(candidates, self.bot.enemy_start_locations[0])
-                self.bot.dronny_tag = chosen.tag if chosen else None
-            else:
-                chosen = None
-            dronny = chosen
+        dronny = self.find_dronny()
 
-        if self.bot.structures(UnitTypeId.SPAWNINGPOOL).amount + self.bot.already_pending(
-                UnitTypeId.SPAWNINGPOOL) == 0:
-            dronny = self.bot.units.find_by_tag(self.bot.dronny_tag) if self.bot.dronny_tag else None
-            distance = 8
-            if self.bot.time < 70 and dronny is not None:
-                if 200 > self.bot.minerals > 140 and not dronny.is_carrying_resource and get_distance(
-                        dronny.position, self.bot.start_location) < distance:
-                    self.bot.action_registry.submit_action(
-                        tag=dronny.tag,
-                        action=lambda u=dronny, p=self.bot.enemy_start_locations[0].position: u.move(p),
-                        priority=ActionPriority.LOW,
-                        source="move_to_pool_location"
-                    )
-                    if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
+        self.build_spawning_pool(dronny, first_base)
 
-                elif self.bot.can_afford(UnitTypeId.SPAWNINGPOOL):
-                    self.bot.action_registry.submit_action(
-                        tag=dronny.tag,
-                        action=lambda u=dronny, tid=UnitTypeId.SPAWNINGPOOL,
-                                       near_pos=dronny.position: u.build(tid, near_pos),
-                        priority=ActionPriority.HIGH,
-                        source="building_pool"
-                    )
-                    if dronny.tag not in self.bot.building_workers_tags:
-                        self.bot.building_workers_tags.append(dronny.tag)
-
-                elif get_distance(dronny.position, self.bot.start_location) >= distance and self.bot.minerals > 160:
-                    self.bot.action_registry.submit_action(
-                        tag=dronny.tag,
-                        action=lambda u=dronny, p=dronny.position: u.move(p),
-                        priority=ActionPriority.LOW,
-                        source="staying_to_build_pool"
-                    )
-
-            elif self.bot.minerals >= 200 and self.bot.units(UnitTypeId.DRONE).amount > 0:
-                random_drone = self.bot.units(UnitTypeId.DRONE).random
-                self.bot.action_registry.submit_action(
-                    tag=random_drone.tag,
-                    action=lambda u=random_drone, tid=UnitTypeId.SPAWNINGPOOL,
-                                   near_pos=first_base.position: u.build(tid, near_pos),
-                    priority=ActionPriority.HIGH,
-                    source="random_drone_build_pool"
-                )
-                if random_drone.tag not in self.bot.building_workers_tags:
-                    self.bot.building_workers_tags.append(random_drone.tag)
-
-        if (self.bot.supply_left < 1 or (self.bot.need_air_units and self.bot.supply_left < 4)) and \
-                not self.bot.already_pending(UnitTypeId.OVERLORD):
-            if self.bot.can_afford(UnitTypeId.OVERLORD) and larvae.exists:
-                larva = larvae.random
-                self.bot.action_registry.submit_action(
-                    tag=larva.tag,
-                    action=lambda l=larva: l.train(UnitTypeId.OVERLORD),
-                    priority=ActionPriority.HIGH,
-                    source="train_overlord"
-                )
+        overlord_extra_condition = self.bot.need_air_units and self.bot.supply_left < 4
+        self.train_overlord_if_needed(larvae, supply_threshold=0, extra_condition=True)
 
         # GOING MACRO
 
@@ -550,18 +482,9 @@ class ZerglingDroneStrategy:
                 if unit.is_carrying_resource:
                     continue
 
-                for unit_in_known in list(self.bot.known_enemy_u):
-                    if unit_in_known not in self.bot.enemy_units:
-                        self.bot.known_enemy_u.remove(unit_in_known)
+                self.update_known_enemies()
 
                 if self.bot.enemy_units.exists:
-                    for enemy_unit in self.bot.enemy_units:
-                        if (enemy_unit not in self.bot.known_enemy_u) and (
-                                enemy_unit not in self.bot.enemy_structures) and (
-                                enemy_unit not in self.bot.enemy_units(UnitTypeId.LARVA)) and (
-                                not enemy_unit.is_flying):
-                            self.bot.known_enemy_u.append(enemy_unit)
-
                     if len(self.bot.known_enemy_u) > 0 and get_distance(
                             unit.position, self.bot.combat_helper.closest_enemy_unit(unit).position) < 3:
                         closest_enemy = self.bot.combat_helper.closest_enemy_unit(unit)
