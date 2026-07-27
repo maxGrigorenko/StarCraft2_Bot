@@ -38,8 +38,8 @@ class EconomyHelper:
             try:
                 refresh_mining_data(self.bot, drones)   # pass bot to speed_mining module
                 await speed_mining(self.bot)
-            except BaseException:
-                print("Mining exception")
+            except BaseException as e:
+                print(f"Mining exception: {e}")
 
     async def macro_element(self):
         first_base = self.bot.townhalls.first

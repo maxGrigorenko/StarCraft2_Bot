@@ -4,7 +4,7 @@ from src.managers.action_registry import ActionPriority
 
 
 def assign_mining_positions(self):
-    hatcheries = list(filter(self.is_hatchery_for_mining,
+    hatcheries = list(filter(lambda h: is_hatchery_for_mining(self, h),
                              self.structures(UnitTypeId.HATCHERY) | self.structures(UnitTypeId.LAIR) | self.structures(
                                  UnitTypeId.HIVE)))
 
@@ -72,15 +72,16 @@ def refresh_mining_data(self, drones):
     drone_tags = [d.tag for d in drones]
 
     all_mineral_fields = self.mineral_field
-    hatcheries = list(filter(self.is_hatchery_for_mining, self.structures(UnitTypeId.HATCHERY) | self.structures(
-        UnitTypeId.LAIR) | self.structures(UnitTypeId.HIVE)))
+    hatcheries = list(filter(lambda h: is_hatchery_for_mining(self, h),
+                             self.structures(UnitTypeId.HATCHERY) | self.structures(
+                                 UnitTypeId.LAIR) | self.structures(UnitTypeId.HIVE)))
 
     for hatchery in hatcheries:
         if hatchery not in self.mining_hatchery_data:
             self.mining_hatchery_data[hatchery] = []
 
     for mineral_field in all_mineral_fields:
-        closest_hatchery = self.closest_unit(hatcheries, mineral_field)
+        closest_hatchery = self.unit_helper.closest_unit(hatcheries, mineral_field)
         distance = get_distance(closest_hatchery.position, mineral_field.position)
 
         if distance < 10 and mineral_field not in self.mining_mineral_data:
@@ -109,14 +110,14 @@ def refresh_mining_data(self, drones):
         if drones_quantity < 2:
             for i in range(2 - drones_quantity):
                 if len(drones) > 0:
-                    closest_drone = self.closest_unit(drones, mineral_field)
+                    closest_drone = self.unit_helper.closest_unit(drones, mineral_field)
                     if closest_drone is None:
                         break
                     self.mining_mineral_data[mineral_field].append(closest_drone.tag)
                     drones.remove(closest_drone)
 
-    self.check_reorganization()
-    self.assign_mining_positions()
+    check_reorganization(self)
+    assign_mining_positions(self)
 
 
 def check_mineral_fields_near_base(self, base):
@@ -160,11 +161,11 @@ async def speed_mining(self):
             if drone_tag not in self.mining_drones_tags:
                 continue
 
-            drone = self.refresh_unit(drone_tag)
+            drone = self.unit_helper.refresh_unit(drone_tag)
             if drone is None:
                 continue
 
-            hatchery = self.closest_unit(
+            hatchery = self.unit_helper.closest_unit(
                 self.structures(UnitTypeId.HATCHERY) | self.structures(UnitTypeId.LAIR) | self.structures(
                     UnitTypeId.HIVE), drone)
             if hatchery is None:
