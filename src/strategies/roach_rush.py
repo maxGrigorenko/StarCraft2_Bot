@@ -1,11 +1,13 @@
 from sc2.ids.upgrade_id import UpgradeId
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.ids.effect_id import EffectId
 from sc2.data import Race
 from src.managers.ravager_manager import find_closest_enemy, calculate_retreat_position
 from src.managers.action_registry import ActionPriority
 from src.utils.coordinate_functions import get_distance, go_from_point, radius_go_from_point
 from src.strategies.base_strategy import BaseStrategy
+from sc2.position import Point2
 
 
 class RoachStrategy(BaseStrategy):
@@ -21,14 +23,28 @@ class RoachStrategy(BaseStrategy):
             roach.tag for roach in self.bot.units(UnitTypeId.ROACH) if roach.health <= 54
         ]
 
+        under_scan_tags = set()
+        SCAN_DODGE_RADIUS = 13.0
+        for effect in self.bot.state.effects:
+            if effect.id != EffectId.SCANNERSWEEP:
+                continue
+            for scan_pos in effect.positions:
+                scan_point = Point2(scan_pos)
+                units_in_range = self.bot.units.filter(
+                    lambda u: u.distance_to(scan_point) <= SCAN_DODGE_RADIUS
+                )
+                under_scan_tags = under_scan_tags.union(units_in_range.tags)
+
         detectors = [unit for unit in self.bot.enemy_units if unit.is_detector]
         for struct in self.bot.enemy_structures:
             if struct.is_detector:
                 detectors.append(struct)
 
         for roach in self.bot.units(UnitTypeId.ROACH):
-            if roach.health <= 54 and not roach.is_burrowed and self.bot.combat_helper.closest_unit_dist(unit=roach,
-                                                                                           units=detectors) > 10:
+            if roach.health <= 54 and not roach.is_burrowed and \
+                    self.bot.combat_helper.closest_unit_dist(unit=roach, units=detectors) > 10 and \
+                    roach.tag not in under_scan_tags:
+
                 self.bot.action_registry.submit_action(
                     tag=roach.tag,
                     action=lambda u=roach: u(AbilityId.BURROWDOWN_ROACH),
@@ -43,8 +59,10 @@ class RoachStrategy(BaseStrategy):
                                                       burrowed_roach)
                 if get_distance(burrowed_roach.position, closest_roach.position) < 3:
                     health_up_border = 85
-            if (burrowed_roach.health >= health_up_border and burrowed_roach.is_burrowed) or self.bot.combat_helper.closest_unit_dist(
-                    unit=burrowed_roach, units=detectors) < 10:
+
+            if (burrowed_roach.health >= health_up_border and burrowed_roach.is_burrowed) or \
+                    self.bot.combat_helper.closest_unit_dist(unit=burrowed_roach, units=detectors) < 10 or \
+                    burrowed_roach.tag in under_scan_tags:
                 self.bot.action_registry.submit_action(
                     tag=burrowed_roach.tag,
                     action=lambda u=burrowed_roach: u(AbilityId.BURROWUP_ROACH),
@@ -53,8 +71,9 @@ class RoachStrategy(BaseStrategy):
                 )
 
         for queen in self.bot.units(UnitTypeId.QUEEN):
-            if queen.health <= 50 and not queen.is_burrowed and self.bot.combat_helper.closest_unit_dist(unit=queen,
-                                                                                           units=detectors) > 10:
+            if queen.health <= 50 and not queen.is_burrowed and \
+                    self.bot.combat_helper.closest_unit_dist(unit=queen, units=detectors) > 10 and \
+                    queen.tag not in under_scan_tags:
                 self.bot.action_registry.submit_action(
                     tag=queen.tag,
                     action=lambda u=queen: u(AbilityId.BURROWDOWN_QUEEN),
@@ -63,8 +82,9 @@ class RoachStrategy(BaseStrategy):
                 )
 
         for burrowed_queen in self.bot.units(UnitTypeId.QUEENBURROWED):
-            if (burrowed_queen.health >= 100 and burrowed_queen.is_burrowed) or self.bot.combat_helper.closest_unit_dist(
-                    unit=burrowed_queen, units=detectors) < 10:
+            if (burrowed_queen.health >= 100 and burrowed_queen.is_burrowed) or \
+                    self.bot.combat_helper.closest_unit_dist(unit=burrowed_queen, units=detectors) < 10 or \
+                    burrowed_queen.tag in under_scan_tags:
                 self.bot.action_registry.submit_action(
                     tag=burrowed_queen.tag,
                     action=lambda u=burrowed_queen: u(AbilityId.BURROWUP_QUEEN),
