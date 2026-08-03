@@ -250,7 +250,10 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units, bile_e
                 if unit.tag == ravager.tag:
                     continue
                 dist_to_unit = get_distance(target_pos, unit.position)
-                if dist_to_unit <= unit.radius + 3.5:
+                radius = 0
+                if hasattr(target, 'radius'):
+                    radius = target.radius
+                if radius < 1.0 and dist_to_unit <= unit.radius + 3.5:
                     safe = False
                     break
             if safe:
@@ -386,6 +389,7 @@ class RavagerManager:
                     enemy_units=enemy_units
                 )
                 if bile_target is not None:
+                    target_in_center = True
                     if can_cast_bile:
                         if get_distance(ravager.position, bile_target.position) < (BILE_RANGE - 1):
                             bile_position = bile_target.position
@@ -395,14 +399,18 @@ class RavagerManager:
                                 target_position=ravager.position,
                                 dist=bile_target.radius + 0.2
                             )
+                            target_in_center = False
+
                         safe_cast = True
-                        for unit in own_units:
-                            if unit.tag == ravager.tag:
-                                continue
-                            dist_to_unit = get_distance(bile_position, unit.position)
-                            if dist_to_unit <= unit.radius + 0.5:
-                                safe_cast = False
-                                break
+                        if not target_in_center or bile_target.radius < 1.0:
+                            for unit in own_units:
+                                if unit.tag == ravager.tag:
+                                    continue
+                                dist_to_unit = get_distance(bile_position, unit.position)
+                                if dist_to_unit <= unit.radius + 0.5:
+                                    safe_cast = False
+                                    break
+
                         if safe_cast:
                             bot.action_registry.submit_action(
                                 tag=ravager.tag,
