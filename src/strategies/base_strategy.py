@@ -14,6 +14,11 @@ class BaseStrategy:
                 self.bot.enemy_structures(UnitTypeId.BUNKER) |
                 self.bot.enemy_structures(UnitTypeId.SPINECRAWLER))
 
+    def dangerous_air_units(self):
+        return (self.bot.enemy_units(UnitTypeId.BANSHEE) |
+                self.bot.enemy_units(UnitTypeId.VOIDRAY) |
+                self.bot.enemy_units(UnitTypeId.MUTALISK))
+
     def should_attack_main_base(self, army_count):
         """Return True if there are army units or opponent main is known and time conditions are met."""
         return (army_count > 0 or (

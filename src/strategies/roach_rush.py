@@ -223,6 +223,9 @@ class RoachStrategy(BaseStrategy):
             if self.bot.enemy_race == Race.Terran and not self.bot.need_to_attack_main_base:
                 self.bot.need_air_units = True
 
+        if self.dangerous_air_units():
+            self.bot.need_air_units = True
+
         forces = self.bot.units(UnitTypeId.ZERGLING) | self.bot.units(UnitTypeId.ROACH) | self.bot.units(UnitTypeId.MUTALISK)
         with_drone_forces = self.bot.units(UnitTypeId.DRONE) | self.bot.units(UnitTypeId.ZERGLING) | self.bot.units(UnitTypeId.ROACH) | self.bot.units(
             UnitTypeId.MUTALISK)

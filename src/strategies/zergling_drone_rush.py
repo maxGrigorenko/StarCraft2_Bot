@@ -356,10 +356,14 @@ class ZerglingDroneStrategy(BaseStrategy):
         else:
             home_dronny_amount = 1  # +1
 
+        if self.dangerous_air_units():
+            self.bot.need_air_units = True
+
         if self.bot.units(UnitTypeId.ZERGLING).amount >= 40:
             self.bot.stop_zergling = True
             if self.bot.enemy_race == Race.Terran and not self.bot.need_to_attack_main_base:
                 self.bot.need_air_units = True
+
         elif self.bot.stop_zergling:
             self.bot.stop_zergling = False
 
