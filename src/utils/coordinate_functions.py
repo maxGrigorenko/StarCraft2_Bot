@@ -127,8 +127,10 @@ def retreat_terrain_aware(unit_position, dangerous_position, retreat_dist,
         ry = vx * sin_a + vy * cos_a
         target_x = unit_position[0] + rx * retreat_dist
         target_y = unit_position[1] + ry * retreat_dist
-        target_ix = round(target_x)
-        target_iy = round(target_y)
+        distance_check_bias = 1.0
+        check_dist = retreat_dist + distance_check_bias
+        target_ix = round(unit_position[0] + rx * check_dist)
+        target_iy = round(unit_position[1] + ry * check_dist)
         # stay within map and only walkable cells
         if pathing_grid is not None:
             if (target_ix < 0 or target_ix >= pathing_grid.width or
