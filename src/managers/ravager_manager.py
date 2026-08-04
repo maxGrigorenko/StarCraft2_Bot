@@ -1,4 +1,4 @@
-from src.utils.coordinate_functions import go_from_point, go_towards_point, get_distance
+from src.utils.coordinate_functions import go_from_point, go_towards_point, get_distance, retreat_terrain_aware
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.effect_id import EffectId
@@ -45,8 +45,14 @@ def find_safe_bile_position(unit_position, target_position, dangerous_structures
     return None
 
 
-def calculate_retreat_position(unit_position, enemy_position, retreat_dist=1.0):
-    """Calculate retreat position away from the closest enemy by a given distance."""
+def calculate_retreat_position(unit_position, enemy_position, retreat_dist=1.0,
+                               terrain_height_map=None, ramps=None, pathing_grid=None):
+    """Calculate retreat position away from the closest enemy by a given distance.
+    If terrain height / ramps info is provided, a smart scan is performed to avoid cliffs.
+    """
+    if terrain_height_map is not None:
+        return retreat_terrain_aware(unit_position, enemy_position, retreat_dist,
+                                     terrain_height_map, ramps, pathing_grid)
     return go_from_point(
         unit_position=unit_position,
         dangerous_position=enemy_position,
@@ -330,6 +336,11 @@ class RavagerManager:
         real_enemies = [u for u in enemy_units if not u.is_hallucination]
         ground_enemies = [u for u in real_enemies if not u.is_flying]
 
+        # Prepare terrain data once for this tick
+        terrain_map = bot.game_info.terrain_height
+        ramps = bot.game_info.map_ramps
+        pgrid = bot.game_info.pathing_grid
+
         # Manage Ravagers
         for ravager in ravagers:
             ravager_critical_health = ravager.health < ravager.health_max * 0.4
@@ -442,7 +453,12 @@ class RavagerManager:
                             )
                         else:
                             retreat_pos = calculate_retreat_position(
-                                ravager.position, closest_enemy.position, retreat_dist=1.5
+                                ravager.position,
+                                closest_enemy.position,
+                                retreat_dist=1.5,
+                                terrain_height_map=terrain_map,
+                                ramps=ramps,
+                                pathing_grid=pgrid,
                             )
                             bot.action_registry.submit_action(
                                 tag=ravager.tag,
@@ -519,7 +535,12 @@ class RavagerManager:
                             )
                         else:
                             retreat_pos = calculate_retreat_position(
-                                roach.position, closest_enemy.position, retreat_dist=1.0
+                                roach.position,
+                                closest_enemy.position,
+                                retreat_dist=1.0,
+                                terrain_height_map=terrain_map,
+                                ramps=ramps,
+                                pathing_grid=pgrid,
                             )
                             bot.action_registry.submit_action(
                                 tag=roach.tag,

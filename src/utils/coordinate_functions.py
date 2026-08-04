@@ -1,6 +1,7 @@
 import math
 import sc2.position
 
+
 def sign(x):
     if x > 0:
         return 1
@@ -8,6 +9,7 @@ def sign(x):
         return 0
     else:
         return -1
+
 
 def find_mining_positions(hatchery, mineral_field):
     k, b = create_straight(hatchery.position, mineral_field.position)
@@ -78,8 +80,10 @@ def go_from_point(unit_position, dangerous_position, dist):  # not accurate
     y = k * x + b
     return sc2.position.Point2([x, y])
 
+
 def go_towards_point(unit_position, target_position, dist):
     return go_from_point(unit_position, target_position, -dist)
+
 
 def radius_go_from_point(center_position, start_position, direction, angle):
     cx, cy = center_position[0], center_position[1]
@@ -90,3 +94,57 @@ def radius_go_from_point(center_position, start_position, direction, angle):
     new_x = cx + radius * math.cos(new_angle)
     new_y = cy + radius * math.sin(new_angle)
     return sc2.position.Point2([new_x, new_y])
+
+
+def retreat_terrain_aware(unit_position, dangerous_position, retreat_dist,
+                          terrain_height_map, ramps=None, pathing_grid=None):
+    """
+    Find a retreat point that avoids cliffs and impassable terrain.
+    Checks same terrain height or ramp membership.
+    Scans angles from 0 to ±110° in 10° increments.
+    Ensures the target cell is walkable (pathing_grid != 0) to prevent
+    moving into buildings, mineral fields or vespene geysers.
+    Falls back to staying in place if no valid point is found.
+    """
+    current_height = terrain_height_map[round(unit_position[0]),
+                                        round(unit_position[1])]
+    vx = unit_position[0] - dangerous_position[0]
+    vy = unit_position[1] - dangerous_position[1]
+    base_length = math.hypot(vx, vy)
+    if base_length == 0:
+        return unit_position
+    vx /= base_length
+    vy /= base_length
+    angles = [0.0]
+    for deg in range(10, 111, 10):
+        angles.append(math.radians(deg))
+        angles.append(math.radians(-deg))
+
+    for angle in angles:
+        cos_a = math.cos(angle)
+        sin_a = math.sin(angle)
+        rx = vx * cos_a - vy * sin_a
+        ry = vx * sin_a + vy * cos_a
+        target_x = unit_position[0] + rx * retreat_dist
+        target_y = unit_position[1] + ry * retreat_dist
+        target_ix = round(target_x)
+        target_iy = round(target_y)
+        # stay within map and only walkable cells
+        if pathing_grid is not None:
+            if (target_ix < 0 or target_ix >= pathing_grid.width or
+                    target_iy < 0 or target_iy >= pathing_grid.height):
+                continue
+            if pathing_grid[target_ix, target_iy] == 0:
+                continue
+        try:
+            target_height = terrain_height_map[target_ix, target_iy]
+        except IndexError:
+            continue
+        if target_height == current_height:
+            return sc2.position.Point2((target_x, target_y))
+        if ramps is not None:
+            target_p = sc2.position.Point2((target_ix, target_iy))
+            if any(target_p in ramp.points for ramp in ramps):
+                return sc2.position.Point2((target_x, target_y))
+    # fallback: stay in place instead of moving into dead end
+    return unit_position

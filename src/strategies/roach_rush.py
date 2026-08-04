@@ -112,6 +112,10 @@ class RoachStrategy(BaseStrategy):
         roaches = self.bot.units(UnitTypeId.ROACH)
         ground_enemies = [u for u in self.bot.enemy_units if not u.is_flying and not u.is_hallucination]
 
+        terrain_map = self.bot.game_info.terrain_height
+        ramps = self.bot.game_info.map_ramps
+        pgrid = self.bot.game_info.pathing_grid
+
         for roach in roaches:
             closest_enemy = find_closest_enemy(roach, ground_enemies)
             if closest_enemy is None:
@@ -128,7 +132,12 @@ class RoachStrategy(BaseStrategy):
                     )
                 else:
                     retreat_pos = calculate_retreat_position(
-                        roach.position, closest_enemy.position, retreat_dist=1.5
+                        roach.position,
+                        closest_enemy.position,
+                        retreat_dist=1.5,
+                        terrain_height_map=terrain_map,
+                        ramps=ramps,
+                        pathing_grid=pgrid,
                     )
                     self.bot.action_registry.submit_action(
                         tag=roach.tag,
