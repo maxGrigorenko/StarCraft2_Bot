@@ -56,7 +56,6 @@ def calculate_retreat_position(unit_position, enemy_position, retreat_dist=1.0,
     if ramps is not None:
         target_p = Point2((target_ix, target_iy))
         if any(target_p in ramp.points for ramp in ramps):
-            print('on ramp retreat')
             on_ramp = True
 
     if terrain_height_map is not None and not on_ramp:
