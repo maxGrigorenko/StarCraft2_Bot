@@ -50,7 +50,16 @@ def calculate_retreat_position(unit_position, enemy_position, retreat_dist=1.0,
     """Calculate retreat position away from the closest enemy by a given distance.
     If terrain height / ramps info is provided, a smart scan is performed to avoid cliffs.
     """
-    if terrain_height_map is not None:
+    on_ramp = False
+    target_ix = round(unit_position[0])
+    target_iy = round(unit_position[1])
+    if ramps is not None:
+        target_p = Point2((target_ix, target_iy))
+        if any(target_p in ramp.points for ramp in ramps):
+            print('on ramp retreat')
+            on_ramp = True
+
+    if terrain_height_map is not None and not on_ramp:
         return retreat_terrain_aware(unit_position, enemy_position, retreat_dist,
                                      terrain_height_map, ramps, pathing_grid)
     return go_from_point(
