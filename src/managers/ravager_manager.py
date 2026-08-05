@@ -18,6 +18,7 @@ BILE_RANGE = 9.0
 BILE_SAFE_MARGIN = 1.0
 BILE_DAMAGE = 60
 BILE_RADIUS = 0.5  # area-of-effect radius of Corrosive Bile
+FORCE_FIELD_RADIUS = 1.5
 SHIELD_BATTERY_HEAL_RANGE = 6.0
 
 
@@ -166,12 +167,21 @@ def get_pylon_priority(pylon, enemy_structures):
     return 3
 
 
+class ForceFieldTarget:
+    """Simple wrapper for a force field position so it can be used as a bile target."""
+    def __init__(self, position, radius=None):
+        self.position = position
+        self.radius = radius if radius is not None else FORCE_FIELD_RADIUS
+
+
 def find_bile_target(ravager, priority_targets, other_targets, own_units, bile_effects,
-                     enemy_structures, enemy_units=None):
+                     enemy_structures, enemy_units=None, force_fields=None):
     """Find the best Corrosive Bile target for a ravager, respecting multiple priority
     levels and already in-flight bile projectiles.
 
     Priority levels:
+        0 - Siege Tank (sieged)
+        0.5 - Force Fields (priority targets to free ramp)
         1 - Pylon powering a Stargate
         2 - Pylon powering a Photon Cannon or Shield Battery
         3 - Other pylons and dangerous structures
@@ -199,6 +209,30 @@ def find_bile_target(ravager, priority_targets, other_targets, own_units, bile_e
 
     if best_sieged_tank is not None:
         return best_sieged_tank
+
+    # --- Force Fields (priority targets to free ramp) ---
+    if force_fields is not None:
+        best_ff = None
+        best_ff_dist = 9999
+        for ff_target in force_fields:
+            # skip if already targeted by a launched bile (account for both radii)
+            doomed = False
+            for effect in bile_effects:
+                for bile_pos in effect.positions:
+                    if get_distance(bile_pos, ff_target.position) <= (BILE_RADIUS + ff_target.radius):
+                        doomed = True
+                        break
+                if doomed:
+                    break
+            if doomed:
+                continue
+            d = get_distance(ravager.position, ff_target.position)
+            if d <= BILE_RANGE + 4.0 and d < best_ff_dist:
+                best_ff_dist = d
+                best_ff = ff_target
+
+        if best_ff is not None:
+            return best_ff
 
     # --- Split priority_targets into pylons and dangerous non-pylon structures ---
     pylons_priority1 = []  # power Stargate
@@ -344,6 +378,13 @@ class RavagerManager:
         real_enemies = [u for u in enemy_units if not u.is_hallucination]
         ground_enemies = [u for u in real_enemies if not u.is_flying]
 
+        # Build list of force field targets (to prioritise clearing ramp block)
+        force_field_targets = []
+        for effect in bot.state.effects:
+            if effect.id == "FORCEFIELD":
+                for pos in effect.positions:
+                    force_field_targets.append(ForceFieldTarget(pos, effect.radius))
+
         # Prepare terrain data once for this tick
         terrain_map = bot.game_info.terrain_height
         ramps = bot.game_info.map_ramps
@@ -405,7 +446,8 @@ class RavagerManager:
                     own_units,
                     bile_effects,
                     enemy_structures,
-                    enemy_units=enemy_units
+                    enemy_units=enemy_units,
+                    force_fields=force_field_targets
                 )
                 if bile_target is not None:
                     target_in_center = True
